@@ -39,8 +39,10 @@ def Task(seed, config):
                                                                      name=f'seed_{seed}'))
             trainer.fit(task, data['data_module'])
             trainer.validate(task, data['data_module'], ckpt_path="best")
-            metrics[name] = task.validation_metrics
+            curves[name] = task.validation_metrics
             # release ckpt files usage
+    for name, curve in curves.items():
+        metrics[name] = curve[-1]
     return metrics, curves
 
 
@@ -93,7 +95,7 @@ class pl_Task(pl.LightningModule):
         pred, y = self(x, y)
         loss = self.loss(pred, y)
         metrics = calculate_metrics(pred, y)
-        metrics['val_loss'] = loss
+        metrics['val_loss'] = loss.item()
         self.validation_metrics.append(metrics)
         for key, value in self.validation_metrics[-1].items():
             self.log(key, value)
@@ -135,6 +137,11 @@ def calculate_metrics(y_hat: Tensor, y: Tensor) -> dict:
     FN = ((1 - y_hat) * y).sum().item()
     FPR = FP / (FP + TN)
     FNR = FN / (TP + FN)
-    return {"Accuracy": Accuracy, "AUC": auc, "Sensitivity": Sensitivity, "Specificity": Specificity,
-            "F1_score": F1_score, "GMean": GMean, "Precision": Precision,
-            "FPR": FPR, "FNR": FNR, "TP": TP, "TN": TN, "FP": FP, "FN": FN}
+    metrics = {"Accuracy": Accuracy, "AUC": auc, "Sensitivity": Sensitivity, "Specificity": Specificity,
+               "F1_score": F1_score, "GMean": GMean, "Precision": Precision,
+               "FPR": FPR, "FNR": FNR, "TP": TP, "TN": TN, "FP": FP, "FN": FN}
+    # # if any number in metrics is tensor, convert it to float
+    # for key, value in metrics.items():
+    #     if isinstance(value, torch.Tensor):
+    #         metrics[key] = value.item()
+    return metrics
