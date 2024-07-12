@@ -93,11 +93,14 @@ class m_DataLoader:
         train_negative = negative_indexes[:int(len(negative_indexes) * self.split_ratio)]
         val_positive = positive_indexes[int(len(positive_indexes) * self.split_ratio):]
         val_negative = negative_indexes[int(len(negative_indexes) * self.split_ratio):]
+        print('train NP ratio: ', len(train_negative) / len(train_positive))
+        print('val NP ratio: ', len(val_negative) / len(val_positive))
+        self.np_ratio = len(train_negative) / len(train_positive)
         self.train_index = train_positive
         self.train_index.extend(train_negative)
         self.val_index = val_positive
         self.val_index.extend(val_negative)
-        self.np_ratio = len(train_negative) / len(train_positive)
+        print('Negative Positive Ratio: ', self.np_ratio)
 
     def data_module(self):
         return self.data_module

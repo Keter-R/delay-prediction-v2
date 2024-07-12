@@ -1,15 +1,16 @@
 import yaml
 from codes.loader.data_loader import m_DataLoader
+from codes.models.MLP import MLP
 
 
 def load_model(config, data_feature, data_length):
-    models = {}
+    models = dict()
     if 'gcn' in config and config['gcn']['enable']:
         print('Loading GCN model...')
         models['gcn'] = 'GCN model loaded'
     if 'mlp' in config and config['mlp']['enable']:
         print('Loading MLP model...')
-        models['mlp'] = 'MLP model loaded'
+        models['mlp'] = MLP(data_feature, data_length, config['mlp']['hidden_dim'], config['mlp']['dropout'])
     return models
 
 
@@ -25,4 +26,5 @@ def load_data(seed, config, using_temporal=False, using_knn=False):
     data['data_module'] = dat.data_module
     data['data_length'] = dat.data_length
     data['data_feature'] = dat.data_feature
+    data['np_ratio'] = dat.np_ratio
     return data
