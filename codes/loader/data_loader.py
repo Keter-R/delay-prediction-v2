@@ -38,6 +38,8 @@ class m_DataLoader:
         self.raw_data = None
         self.data_length = None
         self.data_feature = None
+        self.knn_adj = None
+        self.temporal_adj = None
         self.np_ratio = None
         self.load()
 
@@ -67,6 +69,8 @@ class m_DataLoader:
                                       self.using_temporal, self.using_knn,
                                       self.temporal_config, self.knn_config,
                                       self.raw_data['Date'])
+        self.temporal_adj = self.data_module.temporal_adj
+        self.knn_adj = self.data_module.knn_adj
 
     def process_raw(self):
         dat = self.raw_data
@@ -125,6 +129,8 @@ class DataModule(pl.LightningDataModule):
         self.time_col = time_col
         self.train_dataset = None
         self.val_dataset = None
+        self.temporal_adj = None
+        self.knn_adj = None
         self.generate_data()
 
     def generate_data(self):
@@ -137,8 +143,8 @@ class DataModule(pl.LightningDataModule):
         y_val = np.concatenate([self.val_index, Y.iloc[self.val_index]]).T
         temporal_adj, knn_adj = self.generate_adj()
         # squeeze feat, temporal_adj, knn_adj together
-        X = np.concatenate([feat.flatten(), temporal_adj.flatten(), knn_adj.flatten()], axis=0)
-        assert X.shape[0] == 2 * n * n + n * feat_num
+        X = feat.flatten()
+        assert X.shape[0] == n * feat_num
         assert y_train.shape[0] == len(self.train_index * 2)
         assert y_val.shape[0] == len(self.val_index * 2)
         X = torch.tensor(X, dtype=torch.float32).reshape(1, -1)
@@ -157,7 +163,8 @@ class DataModule(pl.LightningDataModule):
             else:
                 temporal_adj = graph_utils.generate_temporal_graph(self.time_col,
                                                                    self.temporal_config['time_interval'],
-                                                                   self.temporal_config['self_weight'])
+                                                                   self.temporal_config['self_weight'],
+                                                                   self.temporal_config['weighted_edge'])
                 np.save('./temporal_adj.npy', temporal_adj)
         if self.using_knn and self.knn_config is not None:
             if self.knn_config['using_cache'] and os.path.exists('./knn_adj.npy'):
@@ -168,6 +175,8 @@ class DataModule(pl.LightningDataModule):
                                                          self.knn_config['self_weight'],
                                                          self.knn_config['weighted_edge'])
                 np.save('./knn_adj.npy', knn_adj)
+        self.temporal_adj = temporal_adj
+        self.knn_adj = knn_adj
         return temporal_adj, knn_adj
 
     def train_dataloader(self):

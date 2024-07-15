@@ -24,10 +24,10 @@ def tensorboard_draw_metrics(metrics_list):
             for key, value in metric.items():
                 writer.add_scalar('__' + model_name + '_' + key, value)
     # add metrics best performance in all seeds rounds
-    for model_name, metric in metrics_list[0].items():
-        for key, value in metric.items():
-            best_value = max([metrics[model_name][key] for metrics in metrics_list])
-            writer.add_text(model_name + '_' + key + '_max', best_value)
+    # for model_name, metric in metrics_list[0].items():
+    #     for key, value in metric.items():
+    #         best_value = max([metrics[model_name][key] for metrics in metrics_list])
+    #         writer.add_text(model_name + '_' + key + '_max', best_value)
     # add metrics mean and std
     metrics_std, metrics_mean = calculate_metrics_std_and_mean(metrics_list)
     for model_name, metric in metrics_mean.items():

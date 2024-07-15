@@ -1,16 +1,27 @@
 import yaml
 from codes.loader.data_loader import m_DataLoader
 from codes.models.MLP import MLP
+from codes.models.GCN import GCN
 
 
-def load_model(config, data_feature, data_length):
+def load_model(config, data):
+    data_feature = data['data_feature']
+    data_length = data['data_length']
+    temporal_adj = data['temporal_adj']
+    knn_adj = data['knn_adj']
+
     models = dict()
-    if 'gcn' in config and config['gcn']['enable']:
+    if 'gcn_temporal' in config and config['gcn_temporal']['enable']:
         print('Loading GCN model...')
-        models['gcn'] = 'GCN model loaded'
+        models['gcn_temporal'] = GCN(data_feature, config['gcn_temporal']['layer_dim'],
+                                     temporal_adj, config['gcn_temporal']['dropout'],)
+    if 'gcn_knn' in config and config['gcn_knn']['enable']:
+        print('Loading GCN model...')
+        models['gcn_knn'] = GCN(data_feature, config['gcn_knn']['layer_dim'],
+                                knn_adj, config['gcn_knn']['dropout'])
     if 'mlp' in config and config['mlp']['enable']:
         print('Loading MLP model...')
-        models['mlp'] = MLP(data_feature, data_length, config['mlp']['hidden_dim'], config['mlp']['dropout'])
+        models['mlp'] = MLP(data_feature, data_length, config['mlp']['layer_dim'], config['mlp']['dropout'])
     return models
 
 
@@ -27,4 +38,6 @@ def load_data(seed, config, using_temporal=False, using_knn=False):
     data['data_length'] = dat.data_length
     data['data_feature'] = dat.data_feature
     data['np_ratio'] = dat.np_ratio
+    data['knn_adj'] = dat.knn_adj
+    data['temporal_adj'] = dat.temporal_adj
     return data

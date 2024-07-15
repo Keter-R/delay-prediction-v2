@@ -11,7 +11,7 @@ class MLP(nn.Module):
         self.dropout = dropout
         self.mlp = self.generate_mlp()
 
-    def forward(self, feat, temporal_adj=None, knn_adj=None):
+    def forward(self, feat):
         feat = self.mlp(feat)
         return feat
 

@@ -1,36 +1,36 @@
-epoch : 100
-lr : 0.01
-lr_gamma : 0.83
-lr_step_size : 1
+epoch : 200
+lr : 0.003
+lr_gamma : 0.5
+lr_step_size : 20
 weight_decay : 0.001
 
 using_temporal_graph : True
 using_knn_graph : True
 
-loss_weight_alpha : 1
+loss_weight_alpha : 1.5
 
 data:
   split_ratio : 0.8
-  time_dummy_duration : 60
+  time_dummy_duration : 480
   temporal_graph :
     using_cache : True
-    time_interval : 60
+    time_interval : 45
     weighted_edge : True
-    self_weight : 1
+    self_weight : 20
 
   knn_graph :
     using_cache : True
-    k : 60
+    k : 600
     weighted_edge : True
     self_weight : 1
 
 models:
-  gcn:
-    enable : False
-    output_dim : [1024, 256]
+  gcn_temporal:
+    enable : True
+    layer_dim : [512, 256, 1]
     dropout : 0.1
 
   mlp:
-    enable : True
-    hidden_dim : [256]
+    enable : False
+    layer_dim : [256]
     dropout : 0.1
