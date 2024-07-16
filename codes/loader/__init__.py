@@ -5,6 +5,8 @@ from codes.models.GCN import GCN
 from codes.models.GCN import std_GCN
 from sklearn.ensemble import RandomForestClassifier
 from imblearn.ensemble import BalancedRandomForestClassifier
+from sklearn.svm import SVC
+
 
 def load_model(config, data, seed):
     data_feature = data['data_feature']
@@ -35,6 +37,9 @@ def load_model(config, data, seed):
     if 'balanced_random_forest' in config and config['balanced_random_forest']['enable']:
         print('Loading Balanced Random Forest model...')
         models['balanced_random_forest'] = load_sci_kit_models(seed, config, 'balanced_random_forest')
+    if 'svm' in config and config['svm']['enable']:
+        print('Loading SVM model...')
+        models['svm'] = 'svm'
 
     return models
 
@@ -64,3 +69,10 @@ def load_sci_kit_models(seed, config, name):
                                       criterion=config[name]['criterion'],
                                       class_weight=None if 'class_weight' not in config[name] else config[name]['class_weight'],
                                       random_state=seed, n_jobs=-1)
+    if name == 'balanced_random_forest':
+        return BalancedRandomForestClassifier(n_estimators=config[name]['n_estimators'],
+                                              max_features=config[name]['max_features'],
+                                              criterion=config[name]['criterion'],
+                                              random_state=seed, n_jobs=-1)
+    if name == 'svm':
+        return

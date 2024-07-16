@@ -50,7 +50,9 @@ models:
 
   balanced_random_forest:
     enable : False
-    n_estimators : 500
-    min_samples_split : 2
+    n_estimators : 1000
+    min_samples_split : 200
     max_features : 'sqrt'
     criterion : 'gini'
+
+  svm:
