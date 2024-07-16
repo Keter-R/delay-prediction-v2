@@ -56,4 +56,7 @@ models:
     criterion : 'gini'
 
   svm:
+    enable: False
+
+  regression:
     enable: True

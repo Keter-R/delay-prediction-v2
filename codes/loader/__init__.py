@@ -43,6 +43,9 @@ def load_model(config, data, seed):
     if 'svm' in config and config['svm']['enable']:
         print('Loading SVM model...')
         models['svm'] = load_sci_kit_models(seed, config, 'svm')
+    if 'regression' in config and config['regression']['enable']:
+        print('Loading Regression model...')
+        models['regression'] = load_sci_kit_models(seed, config, 'regression')
 
     return models
 
@@ -81,3 +84,7 @@ def load_sci_kit_models(seed, config, name):
     if name == 'svm':
         return SGDClassifier(loss='hinge', penalty='l2', eta0=0.01,
                              random_state=seed, max_iter=5, learning_rate='adaptive', class_weight='balanced')
+
+    if name == 'regression':
+        return SGDClassifier(loss='log_loss', penalty='l2', eta0=0.01,
+                             random_state=seed, max_iter=100, learning_rate='adaptive', class_weight='balanced')
