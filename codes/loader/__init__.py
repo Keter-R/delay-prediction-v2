@@ -2,7 +2,7 @@ import yaml
 from codes.loader.data_loader import m_DataLoader
 from codes.models.MLP import MLP
 from codes.models.GCN import GCN
-
+from codes.models.GCN import std_GCN
 
 def load_model(config, data):
     data_feature = data['data_feature']
@@ -11,6 +11,11 @@ def load_model(config, data):
     knn_adj = data['knn_adj']
 
     models = dict()
+    if 'std_gcn_temporal' in config and config['std_gcn_temporal']['enable']:
+        print('Loading std GCN model...')
+        models['std_gcn_temporal'] = std_GCN(data_feature, config['std_gcn_temporal']['layer_dim'],
+                                             config['std_gcn_temporal']['layer_num'],
+                                             temporal_adj, config['std_gcn_temporal']['dropout'])
     if 'gcn_temporal' in config and config['gcn_temporal']['enable']:
         print('Loading GCN model...')
         models['gcn_temporal'] = GCN(data_feature, config['gcn_temporal']['layer_dim'],

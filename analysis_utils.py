@@ -37,3 +37,4 @@ def tensorboard_draw_metrics(metrics_list):
             writer.add_text(model_name + '_' + key, val)
     writer.flush()
     writer.close()
+    return metrics_std, metrics_mean

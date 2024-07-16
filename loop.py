@@ -25,6 +25,9 @@ def Task(seed, config):
         elif name == 'gcn_knn':
             task = torch_model_task(model, name, seed, data, config)
             curves[name] = task.validation_metrics
+        elif name == 'std_gcn_temporal':
+            task = torch_model_task(model, name, seed, data, config)
+            curves[name] = task.validation_metrics
         elif name == 'mlp':
             task = torch_model_task(model, name, seed, data, config)
             curves[name] = task.validation_metrics

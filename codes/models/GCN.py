@@ -5,6 +5,26 @@ import torch
 import torch.nn as nn
 import torch_geometric.utils
 from torch_geometric.nn import GCNConv
+import torch_geometric.nn.models as tgmodels
+
+
+class std_GCN(nn.Module):
+    def __init__(self, in_features, layer_dim, layer_num, adj, dropout=0.):
+        super(std_GCN, self).__init__()
+        self.in_features = in_features
+        adj = torch.tensor(adj, dtype=torch.float32).to('cuda')
+        D = torch.diag(torch.sum(adj, dim=1))
+        D_inv = torch.inverse(D)
+        A_hat = torch.matmul(torch.matmul(D_inv, adj), D_inv)
+        self.A = adj.to('cuda')
+        self.edge_index, self.edge_weight = torch_geometric.utils.dense_to_sparse(self.A)
+        self.gcn = tgmodels.GCN(in_features, layer_dim, layer_num, 1, dropout)
+
+    def forward(self, feat):
+        # normalize
+        feat = feat / feat.sum(dim=1, keepdim=True)
+        feat = self.gcn(feat, self.edge_index, self.edge_weight)
+        return feat
 
 
 class GCN(nn.Module):
@@ -24,9 +44,11 @@ class GCN(nn.Module):
         return feat
 
     def generate_gcn(self):
-        self.A = torch.tensor(self.A, dtype=torch.float32)
+        # D_inv equals -1/2 power of D
+        self.A = torch.tensor(self.A, dtype=torch.float32).to('cuda')
         D = torch.diag(torch.sum(self.A, dim=1))
         D_inv = torch.inverse(D)
+        D_inv = torch.sqrt(D_inv)
         A_hat = torch.matmul(torch.matmul(D_inv, self.A), D_inv)
         self.A = A_hat.to('cuda')
         layers = []
@@ -62,12 +84,12 @@ class GCNLayer(nn.Module):
         self.in_process = nn.Sequential()
         self.out_process = nn.Sequential()
         if norm:
-            self.in_process.add_module('in_norm', nn.LayerNorm(c_in))
+            self.in_process.add_module('in_norm', nn.BatchNorm1d(c_in))
         if activation is not None:
             self.out_process.add_module('out_activation', activation)
         if dropout is not None and dropout > 0:
             self.out_process.add_module('out_dropout', nn.Dropout(dropout))
-        self.gcn = GCNConv(c_in, c_out, cached=True, add_self_loops=False, normalize=True)
+        self.gcn = GCNConv(c_in, c_out, cached=True, add_self_loops=False, normalize=False)
 
     def forward(self, node_feats):
         node_feats = self.in_process(node_feats)
