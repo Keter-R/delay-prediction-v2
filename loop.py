@@ -74,7 +74,11 @@ def other_model_task(model, name, seed, data, config):
     x_val = data['x_val']
     y_val = data['y_val']
     model.fit(x_train, y_train)
-    y_hat = model.predict_proba(x_val)[:, 1]
+    if name == 'svm':
+        # in svm, predict_proba is not available, use predict instead
+        y_hat = model.predict(x_val)
+    else:
+        y_hat = model.predict_proba(x_val)[:, 1]
     y_hat = torch.tensor(y_hat).to("cuda")
     y_val = torch.tensor(y_val).to("cuda")
     metrics = calculate_metrics(y_hat, y_val)

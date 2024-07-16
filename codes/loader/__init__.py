@@ -1,11 +1,14 @@
 import yaml
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+
 from codes.loader.data_loader import m_DataLoader
 from codes.models.MLP import MLP
 from codes.models.GCN import GCN
 from codes.models.GCN import std_GCN
 from sklearn.ensemble import RandomForestClassifier
 from imblearn.ensemble import BalancedRandomForestClassifier
-from sklearn.svm import SVC
+from sklearn.linear_model import SGDClassifier
 
 
 def load_model(config, data, seed):
@@ -23,7 +26,7 @@ def load_model(config, data, seed):
     if 'gcn_temporal' in config and config['gcn_temporal']['enable']:
         print('Loading GCN model...')
         models['gcn_temporal'] = GCN(data_feature, config['gcn_temporal']['layer_dim'],
-                                     temporal_adj, config['gcn_temporal']['dropout'],)
+                                     temporal_adj, config['gcn_temporal']['dropout'], )
     if 'gcn_knn' in config and config['gcn_knn']['enable']:
         print('Loading GCN model...')
         models['gcn_knn'] = GCN(data_feature, config['gcn_knn']['layer_dim'],
@@ -39,7 +42,7 @@ def load_model(config, data, seed):
         models['balanced_random_forest'] = load_sci_kit_models(seed, config, 'balanced_random_forest')
     if 'svm' in config and config['svm']['enable']:
         print('Loading SVM model...')
-        models['svm'] = 'svm'
+        models['svm'] = load_sci_kit_models(seed, config, 'svm')
 
     return models
 
@@ -67,7 +70,8 @@ def load_sci_kit_models(seed, config, name):
         return RandomForestClassifier(n_estimators=config[name]['n_estimators'],
                                       max_features=config[name]['max_features'],
                                       criterion=config[name]['criterion'],
-                                      class_weight=None if 'class_weight' not in config[name] else config[name]['class_weight'],
+                                      class_weight=None if 'class_weight' not in config[name] else config[name][
+                                          'class_weight'],
                                       random_state=seed, n_jobs=-1)
     if name == 'balanced_random_forest':
         return BalancedRandomForestClassifier(n_estimators=config[name]['n_estimators'],
@@ -75,4 +79,5 @@ def load_sci_kit_models(seed, config, name):
                                               criterion=config[name]['criterion'],
                                               random_state=seed, n_jobs=-1)
     if name == 'svm':
-        return
+        return SGDClassifier(loss='hinge', penalty='l2', eta0=0.01,
+                             random_state=seed, max_iter=5, learning_rate='adaptive', class_weight='balanced')

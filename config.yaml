@@ -56,3 +56,4 @@ models:
     criterion : 'gini'
 
   svm:
+    enable: True
