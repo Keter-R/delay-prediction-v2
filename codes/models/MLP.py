@@ -19,13 +19,13 @@ class MLP(nn.Module):
         layers = []
         for i in range(len(self.hidden_list)):
             if i == 0:
-                layers.append(nn.BatchNorm1d(self.data_feature))
+                layers.append(nn.LayerNorm(self.data_feature))
                 layers.append(nn.Linear(self.data_feature, self.hidden_list[i]))
             else:
-                layers.append(nn.BatchNorm1d(self.hidden_list[i - 1]))
+                layers.append(nn.LayerNorm(self.hidden_list[i - 1]))
                 layers.append(nn.Linear(self.hidden_list[i - 1], self.hidden_list[i]))
             layers.append(nn.ReLU())
             layers.append(nn.Dropout(self.dropout))
-        layers.append(nn.BatchNorm1d(self.hidden_list[-1]))
+        layers.append(nn.LayerNorm(self.hidden_list[-1]))
         layers.append(nn.Linear(self.hidden_list[-1], 1))
         return nn.Sequential(*layers)
