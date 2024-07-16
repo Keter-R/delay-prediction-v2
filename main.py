@@ -16,7 +16,7 @@ if os.path.exists('./temporal_adj.npy'):
 
 config = yaml.load(open('config.yaml'), Loader=yaml.FullLoader)
 random_seed = [2, 3, 5, 7, 11, 13, 17, 19, 23, 998244353]
-random_seed = [2]
+# random_seed = [2]
 torch.set_float32_matmul_precision('high')
 metrics_list = []
 
@@ -28,8 +28,9 @@ for seed in random_seed:
     metrics, curves = Task(seed, config)
     metrics_list.append(metrics)
 
-tensorboard_draw_metrics(metrics_list)
-
+mean, std = tensorboard_draw_metrics(metrics_list)
+print(mean)
+print(std)
 # delete cache files: temporal_graph.npy, knn_graph.npy
 # os.remove('./temporal_adj.npy')
 # os.remove('./knn_adj.npy')
