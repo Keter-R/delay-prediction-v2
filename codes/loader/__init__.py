@@ -3,8 +3,10 @@ from codes.loader.data_loader import m_DataLoader
 from codes.models.MLP import MLP
 from codes.models.GCN import GCN
 from codes.models.GCN import std_GCN
+from sklearn.ensemble import RandomForestClassifier
+from imblearn.ensemble import BalancedRandomForestClassifier
 
-def load_model(config, data):
+def load_model(config, data, seed):
     data_feature = data['data_feature']
     data_length = data['data_length']
     temporal_adj = data['temporal_adj']
@@ -27,6 +29,13 @@ def load_model(config, data):
     if 'mlp' in config and config['mlp']['enable']:
         print('Loading MLP model...')
         models['mlp'] = MLP(data_feature, data_length, config['mlp']['layer_dim'], config['mlp']['dropout'])
+    if 'random_forest' in config and config['random_forest']['enable']:
+        print('Loading Random Forest model...')
+        models['random_forest'] = load_sci_kit_models(seed, config, 'random_forest')
+    if 'balanced_random_forest' in config and config['balanced_random_forest']['enable']:
+        print('Loading Balanced Random Forest model...')
+        models['balanced_random_forest'] = load_sci_kit_models(seed, config, 'balanced_random_forest')
+
     return models
 
 
@@ -46,3 +55,12 @@ def load_data(seed, config, using_temporal=False, using_knn=False):
     data['knn_adj'] = dat.knn_adj
     data['temporal_adj'] = dat.temporal_adj
     return data
+
+
+def load_sci_kit_models(seed, config, name):
+    if name == 'random_forest':
+        return RandomForestClassifier(n_estimators=config[name]['n_estimators'],
+                                      max_features=config[name]['max_features'],
+                                      criterion=config[name]['criterion'],
+                                      class_weight=None if 'class_weight' not in config[name] else config[name]['class_weight'],
+                                      random_state=seed, n_jobs=-1)

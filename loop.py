@@ -15,7 +15,7 @@ def Task(seed, config):
     data = loader.load_data(seed, config['data'],
                             using_temporal=config['using_temporal_graph'],
                             using_knn=config['using_knn_graph'])
-    models = loader.load_model(config['models'], data)
+    models = loader.load_model(config['models'], data, seed)
     metrics = dict()
     curves = dict()
     for name, model in models.items():
@@ -31,6 +31,8 @@ def Task(seed, config):
         elif name == 'mlp':
             task = torch_model_task(model, name, seed, data, config)
             curves[name] = task.validation_metrics
+        else:
+            curves[name] = other_model_task(model, name, seed, data, config)
     for name, curve in curves.items():
         metrics[name] = curve[-1]
     return metrics, curves
@@ -64,6 +66,20 @@ def torch_model_task(model, name, seed, data, config):
     trainer.fit(task, data['data_module'])
     trainer.validate(task, data['data_module'], ckpt_path="best")
     return task
+
+
+def other_model_task(model, name, seed, data, config):
+    x_train = data['x_train']
+    y_train = data['y_train']
+    x_val = data['x_val']
+    y_val = data['y_val']
+    model.fit(x_train, y_train)
+    y_hat = model.predict_proba(x_val)[:, 1]
+    y_hat = torch.tensor(y_hat).to("cuda")
+    y_val = torch.tensor(y_val).to("cuda")
+    metrics = calculate_metrics(y_hat, y_val)
+    curves = [metrics]
+    return curves
 
 
 class pl_Task(pl.LightningModule):

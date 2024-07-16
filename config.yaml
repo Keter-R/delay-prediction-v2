@@ -37,6 +37,20 @@ models:
     dropout : 0.1
 
   mlp:
-    enable : True
+    enable : False
     layer_dim : [128, 64]
     dropout : 0.1
+
+  random_forest:
+    enable : False
+    n_estimators : 1000
+    min_samples_split : 200
+    max_features : 'sqrt'
+    criterion : 'gini'
+
+  balanced_random_forest:
+    enable : False
+    n_estimators : 500
+    min_samples_split : 2
+    max_features : 'sqrt'
+    criterion : 'gini'
