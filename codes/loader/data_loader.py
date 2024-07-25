@@ -6,7 +6,7 @@ import torch
 from numpy import random
 import pytorch_lightning as pl
 from torch.utils.data import DataLoader
-
+from sklego.preprocessing import RepeatingBasisFunction
 from codes.loader import graph_utils
 
 
@@ -73,7 +73,7 @@ class m_DataLoader:
         self.knn_adj = self.data_module.knn_adj
 
     def process_raw(self):
-        dat = self.raw_data
+        dat = self.raw_data.copy()
         dat['Date'] = pd.to_datetime(dat['Date'])
         dat.insert(column='Time', value=dat['Date'].dt.time, loc=dat.columns.get_loc('Date'))
         if self.time_duration > 0:
@@ -82,9 +82,37 @@ class m_DataLoader:
             dat['Time'] = dat['Time'].apply(lambda x: 'Morning' if 6 <= x.hour < 12
                                             else 'Afternoon' if 12 <= x.hour < 18
                                             else 'Evening')
-        dat = dat.rename(columns={'Date': 'Month'})
-        dat['Month'] = dat['Month'].dt.month
-        dat = pd.get_dummies(dat, columns=['Route', 'Time', 'Day', 'Month', 'Incident'])
+        # dat = dat.rename(columns={'Date': 'Month'})
+        # dat['Month'] = dat['Month'].dt.month
+        # dat = pd.get_dummies(dat, columns=['Route', 'Time', 'Day', 'Month', 'Incident'])
+        flag = True
+
+        if flag:
+            N_PERIODS = 12
+            dat['Time'] = dat['Date'].dt.hour * 60 + dat['Date'].dt.minute
+            dat['Date'] = dat['Date'].dt.dayofyear
+            rbf_date = RepeatingBasisFunction(
+                n_periods=N_PERIODS,
+                remainder="drop",
+                column="Date",
+                input_range=(1, 365)
+            )
+            date_cols = rbf_date.fit_transform(dat)
+            rbf_time = RepeatingBasisFunction(
+                n_periods=N_PERIODS,
+                remainder="drop",
+                column="Time",
+                input_range=(0, 24 * 60)
+            )
+            time_cols = rbf_time.fit_transform(dat)
+            dat = dat.drop(columns=['Date', 'Day', 'Time'])
+            date_cols = pd.DataFrame(date_cols, columns=[f'Date_{i}' for i in range(N_PERIODS)])
+            time_cols = pd.DataFrame(time_cols, columns=[f'Time_{i}' for i in range(N_PERIODS)])
+            dat = pd.concat([dat, date_cols], axis=1)
+            dat = pd.concat([dat, time_cols], axis=1)
+            dat = pd.get_dummies(dat, columns=['Route', 'Incident'])
+            dat = dat.astype(float)
+            print(dat.columns)
         self.data_feature = len(dat.columns) - 1
         return dat
 
