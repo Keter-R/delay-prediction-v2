@@ -29,7 +29,7 @@ def purify_xlsx(source_path, dest_path, target_cols, target_routes=None):
     dat = dat[dat['Bound'].apply(lambda x: x in ['W', 'E', 'N', 'S', 'B'])]
     # remove rows that in 'Delay' column is zero
     dat = dat[dat['Delay'] > 0]
-    loc_emb = word2vec(dat['Location'], dim=12)
+    loc_emb = word2vec(dat['Location'], dim=1)
     # --------
     for col in dat.columns:
         if col not in target_cols:

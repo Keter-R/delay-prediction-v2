@@ -31,6 +31,9 @@ def Task(seed, config):
         elif name == 'mlp':
             task = torch_model_task(model, name, seed, data, config)
             curves[name] = task.validation_metrics
+        elif name == 'lstm':
+            task = torch_model_task(model, name, seed, data, config)
+            curves[name] = task.validation_metrics
         else:
             curves[name] = other_model_task(model, name, seed, data, config)
     for name, curve in curves.items():
@@ -51,7 +54,7 @@ def torch_model_task(model, name, seed, data, config):
                                                  monitor='AUC', mode='max')
     TI = config["data"]["temporal_graph"]["time_interval"]
     SW = config["data"]["temporal_graph"]["self_weight"]
-    LD = config["models"][name]["layer_dim"]
+    LD = config["models"][name]["layer_dim"] if name != "lstm" else 0
     version = None
     if name == "gcn_temporal":
         version = f"TI_{TI}_SW_{SW}_LD_{LD}"

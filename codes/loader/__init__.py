@@ -6,6 +6,7 @@ from codes.loader.data_loader import m_DataLoader
 from codes.models.MLP import MLP
 from codes.models.GCN import GCN
 from codes.models.GCN import std_GCN
+from codes.models.LSTM import LSTM
 from sklearn.ensemble import RandomForestClassifier
 from imblearn.ensemble import BalancedRandomForestClassifier
 from sklearn.linear_model import SGDClassifier
@@ -46,6 +47,10 @@ def load_model(config, data, seed):
     if 'regression' in config and config['regression']['enable']:
         print('Loading Regression model...')
         models['regression'] = load_sci_kit_models(seed, config, 'regression')
+    if 'lstm' in config and config['lstm']['enable']:
+        print('Loading LSTM model...')
+        models['lstm'] = LSTM(data_feature, config['lstm']['seq_len'], config['lstm']['num_layer'],
+                              config['lstm']['hidden_size'], config['lstm']['dropout'])
 
     return models
 
