@@ -3,6 +3,7 @@ import os
 import pytorch_lightning as pl
 import torch
 from pytorch_lightning.callbacks import StochasticWeightAveraging
+from pytorch_lightning.cli import ReduceLROnPlateau
 from torch import Tensor, optim
 import torchmetrics as tm
 from torcheval.metrics.aggregation.auc import AUC
@@ -152,6 +153,7 @@ class pl_Task(pl.LightningModule):
         )
         # lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=self.lr_gamma)
         lr_scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=self.lr_step_size, gamma=self.lr_gamma)
+        # lr_scheduler = ReduceLROnPlateau(optimizer, 'min')
         return {"optimizer": optimizer, "lr_scheduler": lr_scheduler}
 
 

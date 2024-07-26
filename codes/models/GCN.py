@@ -4,6 +4,7 @@ import dgl
 import torch
 import torch.nn as nn
 import torch_geometric.utils
+from torch.nn.utils.rnn import pad_sequence
 from torch_geometric.nn import GCNConv
 import torch_geometric.nn.models as tgmodels
 
@@ -97,31 +98,60 @@ class GCNLayer(nn.Module):
         node_feats = self.out_process(node_feats)
         return node_feats
 
-# class GCNLayer(nn.Module):
-#     """GCN层"""
-#
-#     def __init__(self, input_features, output_features, adj, bias=True):
-#         super(GCNLayer, self).__init__()
-#         self.input_features = input_features
-#         self.output_features = output_features
-#         self.adj = adj
-#         self.weights = nn.Parameter(torch.FloatTensor(input_features, output_features))
-#         if bias:
-#             self.bias = nn.Parameter(torch.FloatTensor(output_features))
-#         else:
-#             self.register_parameter('bias', None)
-#         self.reset_parameters()
-#
-#     def reset_parameters(self):
-#         """初始化参数"""
-#         std = 1. / math.sqrt(self.weights.size(1))
-#         self.weights.data.uniform_(-std, std)
-#         if self.bias is not None:
-#             self.bias.data.uniform_(-std, std)
-#
-#     def forward(self, x):
-#         support = torch.mm(x, self.weights)
-#         output = torch.mm(self.adj, support)
-#         if self.bias is not None:
-#             return output + self.bias
-#         return output
+
+class LS_GCN(nn.Module):
+    def __init__(self, in_features, dim_list, adj, dropout=0.0, seq_len=4):
+        super(LS_GCN, self).__init__()
+        self.in_features = in_features
+        self.hidden_dim = dim_list
+        self.dropout = dropout
+        self.A = adj
+        self.lstm_out = 16
+        self.seq_len = seq_len
+        self.lstm = nn.LSTM(input_size=self.in_features, hidden_size=self.lstm_out, num_layers=1,
+                            batch_first=True, dropout=dropout)
+        self.gcn = self.generate_gcn()
+        self.data = None
+        self.x = None
+
+    def generate_data(self, x):
+        feat = []
+        for i in range(x.shape[0]):
+            feat.append(x[max(0, i - self.seq_len - 1):i, :])
+        # padding feat to make it have same length
+        feat = pad_sequence(feat, True, 0)
+        return feat
+
+    def forward(self, feat):
+        # normalize
+        feat = feat / feat.sum(dim=1, keepdim=True)
+        if self.x is None:
+            self.x = feat.clone()
+        if self.data is None:
+            self.data = self.generate_data(feat)
+        feat, _ = self.lstm(self.data)
+        feat = feat[:, -1, :]
+        # concat [x feat]
+        feat = torch.cat([self.x, feat], dim=1)
+        for layer in self.gcn:
+            feat = layer(feat)
+        return feat
+
+    def generate_gcn(self):
+        # D_inv equals -1/2 power of D
+        self.A = torch.tensor(self.A, dtype=torch.float32).to('cuda')
+        D = torch.diag(torch.sum(self.A, dim=1))
+        D_inv = torch.inverse(D)
+        D_inv = torch.sqrt(D_inv)
+        A_hat = torch.matmul(torch.matmul(D_inv, self.A), D_inv)
+        self.A = A_hat.to('cuda')
+        layers = []
+        for i in range(len(self.hidden_dim) - 1):
+            if i == 0:
+                layers.append(
+                    GCNLayer(self.lstm_out + self.in_features, self.hidden_dim[i], self.A, self.dropout, nn.LeakyReLU(), False))
+            else:
+                layers.append(
+                    GCNLayer(self.hidden_dim[i - 1], self.hidden_dim[i], self.A, self.dropout, nn.LeakyReLU()))
+        layers.append(GCNLayer(self.hidden_dim[-2], self.hidden_dim[-1], self.A, None, None))
+        return nn.ModuleList(layers)

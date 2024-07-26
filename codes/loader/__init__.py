@@ -4,7 +4,7 @@ from sklearn.preprocessing import StandardScaler
 
 from codes.loader.data_loader import m_DataLoader
 from codes.models.MLP import MLP
-from codes.models.GCN import GCN
+from codes.models.GCN import GCN, LS_GCN
 from codes.models.GCN import std_GCN
 from codes.models.LSTM import LSTM
 from sklearn.ensemble import RandomForestClassifier
