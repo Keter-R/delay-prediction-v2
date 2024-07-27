@@ -82,10 +82,8 @@ class m_DataLoader:
             dat['Time'] = dat['Time'].apply(lambda x: 'Morning' if 6 <= x.hour < 12
                                             else 'Afternoon' if 12 <= x.hour < 18
                                             else 'Evening')
-        # dat = dat.rename(columns={'Date': 'Month'})
-        # dat['Month'] = dat['Month'].dt.month
-        # dat = pd.get_dummies(dat, columns=['Route', 'Time', 'Day', 'Month', 'Incident'])
-        flag = True
+
+        flag = False
 
         if flag:
             N_PERIODS = 12
@@ -113,6 +111,11 @@ class m_DataLoader:
             dat = pd.get_dummies(dat, columns=['Route', 'Incident'])
             dat = dat.astype(float)
             print(dat.columns)
+        else:
+            dat = dat.rename(columns={'Date': 'Month'})
+            dat['Month'] = dat['Month'].dt.month
+            dat = pd.get_dummies(dat, columns=['Route', 'Time', 'Day', 'Month', 'Incident'])
+            dat = dat.astype(float)
         self.data_feature = len(dat.columns) - 1
         return dat
 

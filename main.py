@@ -16,7 +16,8 @@ if os.path.exists('./knn_adj.npy'):
 
 config = yaml.load(open('config.yaml'), Loader=yaml.FullLoader)
 random_seed = [2, 3, 5, 7, 11, 13, 17, 19, 23, 998244353]
-#random_seed = [2]
+# random_seed = [2, 97, 997, 9973, 99991, 999983, 9999991, 99999989, 999999937, 9999999967]
+# random_seed = [2]
 torch.set_float32_matmul_precision('high')
 metrics_list = []
 
