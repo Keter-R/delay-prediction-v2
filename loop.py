@@ -1,5 +1,6 @@
 import os
-
+import random
+import pandas as pd
 import pytorch_lightning as pl
 import torch
 from pytorch_lightning.callbacks import StochasticWeightAveraging
@@ -9,6 +10,7 @@ import torchmetrics as tm
 from torcheval.metrics.aggregation.auc import AUC
 from pytorch_lightning import loggers as pl_loggers
 from codes import loader
+import shap
 
 
 def Task(seed, config):
@@ -69,7 +71,47 @@ def torch_model_task(model, name, seed, data, config):
                                                              version=version))
     trainer.fit(task, data['data_module'])
     trainer.validate(task, data['data_module'], ckpt_path="best")
+    PFI(task.to('cuda'), data['data'], data['val_index'])
     return task
+
+
+def PFI(model, data: pd.DataFrame, val_index: list):
+    model.eval()
+    # permutation feature importance
+    Y_ground_truth = torch.tensor(data['Delay'].values, dtype=torch.float32).to("cuda")
+    X = data.drop(columns=['Delay'])
+    X = torch.tensor(X.values, dtype=torch.float32).to("cuda")
+    Y_pred = model(X.flatten()).flatten()
+    true_loss = model.loss(Y_pred[val_index], Y_ground_truth[val_index]).item()
+    K = 10
+    clos = data.columns
+    clos = clos.drop('Delay')
+    FI = []
+    for i in range(len(clos)):
+        perm_loss = 0
+        for j in range(K):
+            X_perm = X.clone()
+            random.seed(j)
+            shuffled_indexes = val_index
+            random.shuffle(shuffled_indexes)
+            idx = 0
+            for index in range(X_perm.shape[0]):
+                if index in shuffled_indexes:
+                    X_perm[index, i] = X_perm[shuffled_indexes[idx], i]
+                    idx += 1
+            Y_pred = model(X_perm.flatten()).flatten()
+            perm_loss += model.loss(Y_pred[val_index], Y_ground_truth[val_index]).item()
+        perm_loss /= K
+        FI.append(((true_loss - perm_loss) / true_loss, clos[i]))
+        print(f"Feature: {clos[i]}, True Loss: {true_loss}, Perm Loss: {perm_loss}")
+        torch.cuda.empty_cache()
+    # sort FI by abs value
+    FI.sort(key=lambda x: abs(x[0]), reverse=True)
+    print("\n\nPermutation Feature Importance")
+    for i in range(len(FI)):
+        print(f"Feature: {FI[i][1]}, PFI: {FI[i][0]}")
+    print("PFI Done\n\n")
+    exit(133)
 
 
 def other_model_task(model, name, seed, data, config):
@@ -111,7 +153,7 @@ class pl_Task(pl.LightningModule):
             target = target.to('cuda')
         return self.loss_fn(pred, target)
 
-    def forward(self, x, y):
+    def forward(self, x, y=None):
         x = x.flatten()
         feat = x.reshape(self.data_len, self.data_feature)
         # temporal_adj = (x[self.data_len * self.data_feature:self.data_len * (self.data_feature + self.data_len)]
@@ -119,6 +161,8 @@ class pl_Task(pl.LightningModule):
         # knn_adj = x[self.data_len * (self.data_feature + self.data_len):].reshape(self.data_len, self.data_len)
         pred = self.model(feat)
         pred = pred.flatten()
+        if y is None:
+            return pred.reshape(1, -1)
         y = y.flatten()
         n = y.shape[0] // 2
         # first half of y is target indexes, second half is target values

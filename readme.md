@@ -1,3 +1,35 @@
+2024.07.28
+添加测试结果，采取如下措施
+
+- 使用[RepeatingBasisFunction](https://koaning.github.io/scikit-lego/user-guide/preprocessing/#repeating-basis-function-transformer)方法对时间特征进行编码，以取代原先的Month One-Hot和时间段One-Hot
+
+- 使用[HashingVectorizer](https://scikit-learn.org/stable/modules/generated/sklearn.feature_extraction.text.HashingVectorizer.html)方法对Location特征进行编码，尝试引入额外的特征
+
+- 尝试使用所有'Delay'标签的数据、删除'Delay'标签为0的数据、删除'Delay'标签为1的数据进行训练
+
+| GCN Temporal     | AUC       | GMean     | F1_score  | Sensitivity | Specificity |
+|------------------|-----------|-----------|-----------|-------------|-------------|
+| no rbf, all      | 0.816     | 0.745     | 0.362     | 0.689       | 0.806       |
+| no rbf, delay!=0 | 0.822     | 0.741     | 0.372     | 0.694       | 0.793       |
+| no rbf, delay!=1 | 0.816     | 0.746     | 0.363     | 0.691       | __0.807__   |
+| rbf, all         | 0.819     | __0.747__ | 0.363     | 0.694       | 0.805       |
+| rbf, delay!=0    | __0.825__ | __0.747__ | __0.376__ | __0.706__   | 0.792       |
+| rbf, delay!=1    | 0.820     | 0.745     | 0.361     | 0.689       | 0.806       |
+
+* The performance of GCN(with KNN) is similar to GCN(Temporal) but a little bit worse.
+
+
+| MLP              | AUC       | GMean     | F1_score  | Sensitivity | Specificity |
+|------------------|-----------|-----------|-----------|-------------|-------------|
+| no rbf, all      | 0.811     | 0.736     | 0.357     | __0.670__   | __0.809__   |
+| no rbf, delay!=0 | 0.815     | 0.732     | __0.370__ | 0.669       | 0.802       |
+| no rbf, delay!=1 | 0.812     | 0.735     | 0.354     | __0.670__   | 0.806       |
+| rbf, all         | 0.812     | 0.737     | 0.343     | 0.692       | 0.786       |
+| rbf, delay!=0    | __0.816__ | __0.739__ | 0.366     | 0.696       | 0.785       |
+| rbf, delay!=1    | 0.812     | 0.733     | 0.346     | 0.676       | 0.796       |
+
+-------previous form dividing line--------
+
 | model_name             | Accuracy        | AUC             | Sensitivity     | Specificity     | F1_score        | GMean           | Precision       | FPR             | FNR             | TPR             | TNR             | TP                | TN                 | FP                 | FN                |
 |------------------------|-----------------|-----------------|-----------------|-----------------|-----------------|-----------------|-----------------|-----------------|-----------------|-----------------|-----------------|-------------------|--------------------|--------------------|-------------------|
 | GCN(temporal)          | 0.803±0.010     | __0.813±0.008__ | 0.680±0.027     | 0.814±0.012     | 0.363±0.008     | __0.744±0.011__ | 0.247±0.008     | 0.186±0.012     | 0.320±0.027     | 0.680±0.027     | 0.814±0.012     | 159.800±6.258     | 2129.800±32.585    | 487.200±32.585     | 75.200±6.258      |

@@ -70,6 +70,8 @@ def load_data(seed, config, using_temporal=False, using_knn=False):
     data['np_ratio'] = dat.np_ratio
     data['knn_adj'] = dat.knn_adj
     data['temporal_adj'] = dat.temporal_adj
+    data['data'] = dat.data
+    data['val_index'] = dat.val_index
     return data
 
 
