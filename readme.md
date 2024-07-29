@@ -1,9 +1,9 @@
 2024.07.28
 添加测试结果，采取如下措施
 
-- 使用[RepeatingBasisFunction](https://koaning.github.io/scikit-lego/user-guide/preprocessing/#repeating-basis-function-transformer)方法对时间特征进行编码，以取代原先的Month One-Hot和时间段One-Hot
+- 使用[RepeatingBasisFunction](https://koaning.github.io/scikit-lego/user-guide/preprocessing/#repeating-basis-function-transformer)方法对时间特征进行编码，以取代原先的Month One-Hot和时间段One-Hot。 下表no rbf使用One-Hot, rbf使用RepeatingBasisFunction编码特征
 
-- 使用[HashingVectorizer](https://scikit-learn.org/stable/modules/generated/sklearn.feature_extraction.text.HashingVectorizer.html)方法对Location特征进行编码，尝试引入额外的特征
+- 使用[HashingVectorizer](https://scikit-learn.org/stable/modules/generated/sklearn.feature_extraction.text.HashingVectorizer.html)方法对Location特征进行编码，尝试引入额外的特征。下表全部使用Location对应的编码特征
 
 - 尝试使用所有'Delay'标签的数据、删除'Delay'标签为0的数据、删除'Delay'标签为1的数据进行训练
 
