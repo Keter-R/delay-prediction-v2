@@ -5,26 +5,64 @@ import torch
 import torch.nn as nn
 import torch_geometric.utils
 from torch.nn.utils.rnn import pad_sequence
-from torch_geometric.nn import GCNConv
+from torch_geometric.nn import GCNConv, TransformerConv
 import torch_geometric.nn.models as tgmodels
 
 
-class std_GCN(nn.Module):
-    def __init__(self, in_features, layer_dim, layer_num, adj, dropout=0.):
-        super(std_GCN, self).__init__()
+class GTN(nn.Module):
+    def __init__(self, in_features, layer_dim, adj,heads=5, dropout=0.):
+        super(GTN, self).__init__()
         self.in_features = in_features
-        adj = torch.tensor(adj, dtype=torch.float32).to('cuda')
-        D = torch.diag(torch.sum(adj, dim=1))
-        D_inv = torch.inverse(D)
-        A_hat = torch.matmul(torch.matmul(D_inv, adj), D_inv)
-        self.A = adj.to('cuda')
+        self.layer_dim = layer_dim
+        self.dropout = dropout
+        self.heads = heads
+        self.A = torch.tensor(adj, dtype=torch.float32).to('cuda')
+        # set A[i,i] = 0
+        self.A = self.A - torch.diag(self.A.diagonal())
         self.edge_index, self.edge_weight = torch_geometric.utils.dense_to_sparse(self.A)
-        self.gcn = tgmodels.GCN(in_features, layer_dim, layer_num, 1, dropout)
+        self.layers = self.generate_layers()
 
     def forward(self, feat):
         # normalize
         feat = feat / feat.sum(dim=1, keepdim=True)
-        feat = self.gcn(feat, self.edge_index, self.edge_weight)
+        for layer in self.layers:
+            feat = layer(feat)
+        return feat
+
+    def generate_layers(self):
+        layers_dims = [self.in_features] + self.layer_dim
+        layers = []
+        for i in range(len(layers_dims) - 1):
+            layers.append(GTConv(layers_dims[i], layers_dims[i + 1], self.edge_index, self.heads, self.dropout))
+        return nn.ModuleList(layers)
+
+
+class GTConv(nn.Module):
+    def __init__(self, in_features, out_features, edge_index, heads=5, dropout=0.):
+        super(GTConv, self).__init__()
+        self.in_features = in_features
+        self.out_features = out_features
+        self.edge_index = edge_index
+        if out_features != 1:
+            self.conv = TransformerConv(-1, out_features, heads=heads, dropout=dropout)
+        else:
+            # using MLP to replace the last layer
+            in_features *= heads
+            self.conv = nn.Sequential(
+                nn.Linear(in_features, 512),
+                nn.ReLU(),
+                nn.BatchNorm1d(512),
+                nn.Dropout(dropout),
+                nn.Linear(512, out_features)
+            )
+
+    def forward(self, feat):
+        if self.conv.__class__.__name__ == 'TransformerConv':
+            feat = self.conv(feat, self.edge_index)
+        else:
+            feat = self.conv(feat)
+        print(feat.shape)
+        # exit(133)
         return feat
 
 
@@ -37,11 +75,17 @@ class GCN(nn.Module):
         self.A = adj
         self.gcn = self.generate_gcn()
 
-    def forward(self, feat):
+    def forward(self, feat, edge_index=None):
         # normalize
+
+        if not isinstance(feat, torch.Tensor):
+            feat = torch.tensor(feat, dtype=torch.float32).to('cuda')
         feat = feat / feat.sum(dim=1, keepdim=True)
         for layer in self.gcn:
-            feat = layer(feat)
+            if edge_index is not None:
+                feat = layer(feat, edge_index)
+            else:
+                feat = layer(feat)
         return feat
 
     def generate_gcn(self):
@@ -92,7 +136,9 @@ class GCNLayer(nn.Module):
             self.out_process.add_module('out_dropout', nn.Dropout(dropout))
         self.gcn = GCNConv(c_in, c_out, cached=True, add_self_loops=False, normalize=False)
 
-    def forward(self, node_feats):
+    def forward(self, node_feats, edge_index=None):
+        if edge_index is not None:
+            self.edge_index = edge_index
         node_feats = self.in_process(node_feats)
         node_feats = self.gcn(node_feats, self.edge_index, self.edge_weight)
         node_feats = self.out_process(node_feats)
@@ -100,16 +146,19 @@ class GCNLayer(nn.Module):
 
 
 class LS_GCN(nn.Module):
-    def __init__(self, in_features, dim_list, adj, dropout=0.0, seq_len=4):
+    def __init__(self, in_features, adj, seq_len, num_layer, hidden_size, hidden_dim, dropout=0.0):
         super(LS_GCN, self).__init__()
         self.in_features = in_features
-        self.hidden_dim = dim_list
+        self.hidden_size = hidden_size
+        self.hidden_dim = hidden_dim
         self.dropout = dropout
         self.A = adj
-        self.lstm_out = 16
+        self.lstm_out = 512
         self.seq_len = seq_len
-        self.lstm = nn.LSTM(input_size=self.in_features, hidden_size=self.lstm_out, num_layers=1,
+        self.lstm = nn.LSTM(input_size=self.in_features, hidden_size=self.lstm_out, num_layers=num_layer,
                             batch_first=True, dropout=dropout)
+        layer = nn.TransformerEncoderLayer(d_model=self.in_features, nhead=5, dim_feedforward=hidden_size, batch_first=True)
+        self.transformer = nn.TransformerEncoder(layer, num_layers=num_layer)
         self.gcn = self.generate_gcn()
         self.data = None
         self.x = None
@@ -117,7 +166,7 @@ class LS_GCN(nn.Module):
     def generate_data(self, x):
         feat = []
         for i in range(x.shape[0]):
-            feat.append(x[max(0, i - self.seq_len - 1):i, :])
+            feat.append(x[max(0, i - self.seq_len + 1):i + 1, :])
         # padding feat to make it have same length
         feat = pad_sequence(feat, True, 0)
         return feat
@@ -129,10 +178,11 @@ class LS_GCN(nn.Module):
             self.x = feat.clone()
         if self.data is None:
             self.data = self.generate_data(feat)
-        feat, _ = self.lstm(self.data)
+        # feat, _ = self.lstm(self.data)
+        feat = self.transformer(self.data)
         feat = feat[:, -1, :]
         # concat [x feat]
-        feat = torch.cat([self.x, feat], dim=1)
+        # feat = torch.cat([self.x, feat], dim=1)
         for layer in self.gcn:
             feat = layer(feat)
         return feat
@@ -149,7 +199,7 @@ class LS_GCN(nn.Module):
         for i in range(len(self.hidden_dim) - 1):
             if i == 0:
                 layers.append(
-                    GCNLayer(self.lstm_out + self.in_features, self.hidden_dim[i], self.A, self.dropout, nn.LeakyReLU(), False))
+                    GCNLayer(self.in_features, self.hidden_dim[i], self.A, self.dropout, nn.LeakyReLU(), False))
             else:
                 layers.append(
                     GCNLayer(self.hidden_dim[i - 1], self.hidden_dim[i], self.A, self.dropout, nn.LeakyReLU()))

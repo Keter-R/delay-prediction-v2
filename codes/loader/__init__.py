@@ -5,7 +5,7 @@ from sklearn.preprocessing import StandardScaler
 from codes.loader.data_loader import m_DataLoader
 from codes.models.MLP import MLP
 from codes.models.GCN import GCN, LS_GCN
-from codes.models.GCN import std_GCN
+from codes.models.GCN import GTN
 from codes.models.LSTM import LSTM
 from sklearn.ensemble import RandomForestClassifier
 from imblearn.ensemble import BalancedRandomForestClassifier
@@ -19,11 +19,9 @@ def load_model(config, data, seed):
     knn_adj = data['knn_adj']
 
     models = dict()
-    if 'std_gcn_temporal' in config and config['std_gcn_temporal']['enable']:
-        print('Loading std GCN model...')
-        models['std_gcn_temporal'] = std_GCN(data_feature, config['std_gcn_temporal']['layer_dim'],
-                                             config['std_gcn_temporal']['layer_num'],
-                                             temporal_adj, config['std_gcn_temporal']['dropout'])
+    if 'gtn' in config and config['gtn']['enable']:
+        print('Loading std gtn model...')
+        models['gtn'] = GTN(data_feature, config['gtn']['layer_dim'], temporal_adj, config['gtn']['heads'], config['gtn']['dropout'])
     if 'gcn_temporal' in config and config['gcn_temporal']['enable']:
         print('Loading GCN model...')
         models['gcn_temporal'] = GCN(data_feature, config['gcn_temporal']['layer_dim'],
@@ -47,10 +45,10 @@ def load_model(config, data, seed):
     if 'regression' in config and config['regression']['enable']:
         print('Loading Regression model...')
         models['regression'] = load_sci_kit_models(seed, config, 'regression')
-    if 'lstm' in config and config['lstm']['enable']:
-        print('Loading LSTM model...')
-        models['lstm'] = LSTM(data_feature, config['lstm']['seq_len'], config['lstm']['num_layer'],
-                              config['lstm']['hidden_size'], config['lstm']['dropout'])
+    if 'ls_gcn' in config and config['ls_gcn']['enable']:
+        print('Loading LSTls_gcnM model...')
+        models['ls_gcn'] = LS_GCN(data_feature, knn_adj, config['ls_gcn']['seq_len'], config['ls_gcn']['num_layer'],
+                                  config['ls_gcn']['hidden_size'], config['ls_gcn']['hidden_dim'], config['ls_gcn']['dropout'])
 
     return models
 
@@ -72,6 +70,7 @@ def load_data(seed, config, using_temporal=False, using_knn=False):
     data['temporal_adj'] = dat.temporal_adj
     data['data'] = dat.data
     data['val_index'] = dat.val_index
+    data['edge_index'] = dat.edge_index
     return data
 
 

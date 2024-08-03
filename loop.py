@@ -3,6 +3,7 @@ import random
 import pandas as pd
 import pytorch_lightning as pl
 import torch
+import torch_geometric
 from pytorch_lightning.callbacks import StochasticWeightAveraging
 from pytorch_lightning.cli import ReduceLROnPlateau
 from torch import Tensor, optim
@@ -11,6 +12,8 @@ from torcheval.metrics.aggregation.auc import AUC
 from pytorch_lightning import loggers as pl_loggers
 from codes import loader
 import shap
+import shap.maskers
+from torch_geometric.explain import Explainer, GNNExplainer
 
 
 def Task(seed, config):
@@ -28,13 +31,13 @@ def Task(seed, config):
         elif name == 'gcn_knn':
             task = torch_model_task(model, name, seed, data, config)
             curves[name] = task.validation_metrics
-        elif name == 'std_gcn_temporal':
+        elif name == 'gtn':
             task = torch_model_task(model, name, seed, data, config)
             curves[name] = task.validation_metrics
         elif name == 'mlp':
             task = torch_model_task(model, name, seed, data, config)
             curves[name] = task.validation_metrics
-        elif name == 'lstm':
+        elif name == 'ls_gcn':
             task = torch_model_task(model, name, seed, data, config)
             curves[name] = task.validation_metrics
         else:
@@ -57,7 +60,7 @@ def torch_model_task(model, name, seed, data, config):
                                                  monitor='AUC', mode='max')
     TI = config["data"]["temporal_graph"]["time_interval"]
     SW = config["data"]["temporal_graph"]["self_weight"]
-    LD = config["models"][name]["layer_dim"] if name != "lstm" else 0
+    LD = config["models"][name]["layer_dim"] if name != "ls_gcn" else 0
     version = None
     if name == "gcn_temporal":
         version = f"TI_{TI}_SW_{SW}_LD_{LD}"
@@ -71,8 +74,45 @@ def torch_model_task(model, name, seed, data, config):
                                                              version=version))
     trainer.fit(task, data['data_module'])
     trainer.validate(task, data['data_module'], ckpt_path="best")
-    PFI(task.to('cuda'), data['data'], data['val_index'])
+    # pyg_exp(task, data['data'], data['edge_index']['temporal'])
+    # SHAP(model, data['data'], data['val_index'])
     return task
+
+
+def pyg_exp(model, data: pd.DataFrame, adj):
+    model.evl = True
+    X = torch.tensor(data.drop(columns=['Delay']).values, dtype=torch.float32).to("cuda")
+    edge_index, edge_weight = torch_geometric.utils.dense_to_sparse(torch.tensor(adj, dtype=torch.float32))
+    model = model.to("cuda")
+    edge_index = edge_index.to("cuda")
+    explainer = Explainer(
+        model=model,
+        algorithm=GNNExplainer(epochs=120),
+        explanation_type='model',
+        node_mask_type='attributes',
+        edge_mask_type='object',
+        model_config=dict(
+            mode='binary_classification',
+            task_level='node',
+            return_type='probs',
+        ),
+    )
+    positive_index = data[data['Delay'] == 1].index
+    # Generate explanation for the node at index `10`:
+    explanation = explainer(X, edge_index, index=positive_index)
+    explanation.visualize_feature_importance(top_k=15, feat_labels=data.columns.drop('Delay'))
+    explanation.visualize_graph()
+
+
+def SHAP(model, data: pd.DataFrame, val_index: list):
+    # aborted, cannot work with GCN model
+    model.eval()
+    model = model.to("cuda")
+    X = torch.tensor(data.drop(columns=['Delay']).values, dtype=torch.float32)
+    X = X.reshape(1, -1)
+    explainer = shap.DeepExplainer(model, X)
+    shap_values = explainer.shap_values(X)
+    print(shap_values)
 
 
 def PFI(model, data: pd.DataFrame, val_index: list):
@@ -145,6 +185,7 @@ class pl_Task(pl.LightningModule):
         self.data_len = data_len
         self.data_feature = data_feature
         self.validation_metrics = []
+        self.evl = False
 
     def loss(self, pred, target):
         if pred.device != 'cuda':
@@ -153,34 +194,38 @@ class pl_Task(pl.LightningModule):
             target = target.to('cuda')
         return self.loss_fn(pred, target)
 
-    def forward(self, x, y=None):
+    def forward(self, x, edge_index=None):
         x = x.flatten()
         feat = x.reshape(self.data_len, self.data_feature)
-        # temporal_adj = (x[self.data_len * self.data_feature:self.data_len * (self.data_feature + self.data_len)]
-        #                 .reshape(self.data_len, self.data_len))
-        # knn_adj = x[self.data_len * (self.data_feature + self.data_len):].reshape(self.data_len, self.data_len)
-        pred = self.model(feat)
+        if edge_index is not None:
+            pred = self.model(feat, edge_index)
+        else:
+            pred = self.model(feat)
+        pred = pred.reshape(-1)
+        # apply sigmoid function to pred
+        if self.evl:
+            pred = torch.sigmoid(pred)
+        return pred
+
+    def get_pred_and_y(self, pred, y):
         pred = pred.flatten()
-        if y is None:
-            return pred.reshape(1, -1)
         y = y.flatten()
         n = y.shape[0] // 2
-        # first half of y is target indexes, second half is target values
-        indexes = y[:n].long()
-        y = y[n:]
-        pred = pred[indexes]
-        return pred, y
+        idx = y[:n].int()
+        return pred[idx], y[n:]
 
     def training_step(self, batch, batch_idx):
         x, y = batch
-        pred, y = self(x, y)
+        pred = self(x)
+        pred, y = self.get_pred_and_y(pred, y)
         loss = self.loss(pred, y)
         self.log("train_loss", loss)
         return loss
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
-        pred, y = self(x, y)
+        pred = self(x)
+        pred, y = self.get_pred_and_y(pred, y)
         loss = self.loss(pred, y)
         metrics = calculate_metrics(pred, y)
         metrics['val_loss'] = loss.item()

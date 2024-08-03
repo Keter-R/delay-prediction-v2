@@ -25,11 +25,11 @@ data:
     self_weight : 32
 
 models:
-  std_gcn_temporal:
+  gtn:
     enable : False
-    layer_dim : 512
-    layer_num : 4
-    dropout : 0.1
+    layer_dim : [512, 1]
+    heads : 8
+    dropout : 0.3
 
   gcn_temporal:
     enable : True
@@ -66,9 +66,10 @@ models:
   regression:
     enable: False
 
-  lstm:
+  ls_gcn:
     enable: False
-    seq_len : 1
+    seq_len : 16
     num_layer: 1
-    hidden_size: 128
+    hidden_size: 512
+    hidden_dim: [32, 1]
     dropout: 0.3

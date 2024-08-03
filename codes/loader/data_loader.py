@@ -41,6 +41,7 @@ class m_DataLoader:
         self.knn_adj = None
         self.temporal_adj = None
         self.np_ratio = None
+        self.edge_index = dict()
         self.load()
 
     def load(self):
@@ -71,43 +72,78 @@ class m_DataLoader:
                                       self.raw_data['Date'])
         self.temporal_adj = self.data_module.temporal_adj
         self.knn_adj = self.data_module.knn_adj
+        self.edge_index['temporal'] = self.temporal_adj
+        self.edge_index['knn'] = self.knn_adj
+
+    def generate_extra_feature(self, dat):
+        dat = dat.copy()
+        # 'line_in_day' and 'route_in_day' stand for the number of all vehicles no matter route or line in a day
+        # and the number of all vehicles in a day for a specific route before the current vehicle
+        # 'interval_in_route' stand for the time interval between two vehicles in a route
+        feat = pd.DataFrame(columns=['line_in_day', 'route_in_day', 'interval_in_route'])
+        dat['Date'] = pd.to_datetime(dat['Date'])
+        dat['Time'] = dat['Date'].dt.hour * 60 + dat['Date'].dt.minute
+        for i in range(0, len(dat)):
+            line_in_day = 1
+            route_in_day = 1
+            line_in_day_max = len(dat[dat['Date'] == dat['Date'][i]])
+            route_in_day_max = len(dat[(dat['Date'] == dat['Date'][i]) & (dat['Route'] == dat['Route'][i])])
+            interval_in_route = 0
+            for j in range(i - 1, -1, -1):
+                if dat['Date'][i].day != dat['Date'][j].day:
+                    break
+                line_in_day += 1
+                if dat['Route'][i] == dat['Route'][j]:
+                    route_in_day += 1
+                    interval_in_route = (dat['Time'][i] - dat['Time'][j])
+            line_in_day /= line_in_day_max
+            route_in_day /= route_in_day_max
+            feat.loc[i] = [line_in_day, route_in_day, interval_in_route]
+        # normalize
+        feat['interval_in_route'] = (feat['interval_in_route'] - feat['interval_in_route'].mean()) / feat[
+            'interval_in_route'].std()
+        print(feat.head())
+        return feat
 
     def process_raw(self):
         dat = self.raw_data.copy()
+        ex_feat = self.generate_extra_feature(dat)
         dat['Date'] = pd.to_datetime(dat['Date'])
         dat.insert(column='Time', value=dat['Date'].dt.time, loc=dat.columns.get_loc('Date'))
         if self.time_duration > 0:
             dat['Time'] = (dat['Date'].dt.hour * 60 + dat['Date'].dt.minute) // self.time_duration
         else:
             dat['Time'] = dat['Time'].apply(lambda x: 'Morning' if 6 <= x.hour < 12
-                                            else 'Afternoon' if 12 <= x.hour < 18
-                                            else 'Evening')
+            else 'Afternoon' if 12 <= x.hour < 18
+            else 'Evening')
 
         flag = True
 
         if flag:
-            N_PERIODS = 12
+            N_PERIODS_DATE = 12
+            N_PERIODS_TIME = 3
             dat['Time'] = dat['Date'].dt.hour * 60 + dat['Date'].dt.minute
             dat['Date'] = dat['Date'].dt.dayofyear
             rbf_date = RepeatingBasisFunction(
-                n_periods=N_PERIODS,
+                n_periods=N_PERIODS_DATE,
                 remainder="drop",
                 column="Date",
                 input_range=(1, 365)
             )
             date_cols = rbf_date.fit_transform(dat)
             rbf_time = RepeatingBasisFunction(
-                n_periods=N_PERIODS,
+                n_periods=N_PERIODS_TIME,
                 remainder="drop",
                 column="Time",
                 input_range=(0, 24 * 60)
             )
             time_cols = rbf_time.fit_transform(dat)
             dat = dat.drop(columns=['Date', 'Day', 'Time'])
-            date_cols = pd.DataFrame(date_cols, columns=[f'Date_{i}' for i in range(N_PERIODS)])
-            time_cols = pd.DataFrame(time_cols, columns=[f'Time_{i}' for i in range(N_PERIODS)])
+            date_cols = pd.DataFrame(date_cols, columns=[f'Date_{i}' for i in range(N_PERIODS_DATE)])
+            time_cols = pd.DataFrame(time_cols, columns=[f'Time_{i}' for i in range(N_PERIODS_TIME)])
             dat = pd.concat([dat, date_cols], axis=1)
             dat = pd.concat([dat, time_cols], axis=1)
+            #   dat = pd.concat([dat, ex_feat], axis=1)
             dat = pd.get_dummies(dat, columns=['Route', 'Incident'])
             dat = dat.astype(float)
             print(dat.columns)
