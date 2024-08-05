@@ -4,7 +4,7 @@ from sklearn.preprocessing import StandardScaler
 
 from codes.loader.data_loader import m_DataLoader
 from codes.models.MLP import MLP
-from codes.models.GCN import GCN, LS_GCN
+from codes.models.GCN import GCN, std_GCN
 from codes.models.GCN import GTN
 from codes.models.LSTM import LSTM
 from sklearn.ensemble import RandomForestClassifier
@@ -36,19 +36,25 @@ def load_model(config, data, seed):
     if 'random_forest' in config and config['random_forest']['enable']:
         print('Loading Random Forest model...')
         models['random_forest'] = load_sci_kit_models(seed, config, 'random_forest')
-    if 'balanced_random_forest' in config and config['balanced_random_forest']['enable']:
+    if 'random_forest_balanced' in config and config['random_forest_balanced']['enable']:
         print('Loading Balanced Random Forest model...')
-        models['balanced_random_forest'] = load_sci_kit_models(seed, config, 'balanced_random_forest')
+        models['random_forest_balanced'] = load_sci_kit_models(seed, config, 'random_forest_balanced')
     if 'svm' in config and config['svm']['enable']:
         print('Loading SVM model...')
         models['svm'] = load_sci_kit_models(seed, config, 'svm')
+    if 'svm_balanced' in config and config['svm_balanced']['enable']:
+        print('Loading Balanced SVM model...')
+        models['svm_balanced'] = load_sci_kit_models(seed, config, 'svm_balanced')
     if 'regression' in config and config['regression']['enable']:
         print('Loading Regression model...')
         models['regression'] = load_sci_kit_models(seed, config, 'regression')
-    if 'ls_gcn' in config and config['ls_gcn']['enable']:
-        print('Loading LSTls_gcnM model...')
-        models['ls_gcn'] = LS_GCN(data_feature, knn_adj, config['ls_gcn']['seq_len'], config['ls_gcn']['num_layer'],
-                                  config['ls_gcn']['hidden_size'], config['ls_gcn']['hidden_dim'], config['ls_gcn']['dropout'])
+    if 'regression_balanced' in config and config['regression_balanced']['enable']:
+        print('Loading Balanced Regression model...')
+        models['regression_balanced'] = load_sci_kit_models(seed, config, 'regression_balanced')
+    if 'std_gcn' in config and config['std_gcn']['enable']:
+        print('Loading std_gcn model...')
+        models['std_gcn'] = std_GCN(data_feature, temporal_adj, config['std_gcn']['num_layer'],
+                                    config['std_gcn']['hidden_size'], config['std_gcn']['dropout'])
 
     return models
 
@@ -82,15 +88,22 @@ def load_sci_kit_models(seed, config, name):
                                       class_weight=None if 'class_weight' not in config[name] else config[name][
                                           'class_weight'],
                                       random_state=seed, n_jobs=-1)
-    if name == 'balanced_random_forest':
+    if name == 'random_forest_balanced':
         return BalancedRandomForestClassifier(n_estimators=config[name]['n_estimators'],
                                               max_features=config[name]['max_features'],
                                               criterion=config[name]['criterion'],
                                               random_state=seed, n_jobs=-1)
     if name == 'svm':
         return SGDClassifier(loss='hinge', penalty='l2', eta0=0.01,
+                             random_state=seed, max_iter=5, learning_rate='adaptive')
+    if name == 'svm_balanced':
+        return SGDClassifier(loss='hinge', penalty='l2', eta0=0.01,
                              random_state=seed, max_iter=5, learning_rate='adaptive', class_weight='balanced')
 
     if name == 'regression':
+        return SGDClassifier(loss='log_loss', penalty='l2', eta0=0.01,
+                             random_state=seed, max_iter=100, learning_rate='adaptive')
+
+    if name == 'regression_balanced':
         return SGDClassifier(loss='log_loss', penalty='l2', eta0=0.01,
                              random_state=seed, max_iter=100, learning_rate='adaptive', class_weight='balanced')

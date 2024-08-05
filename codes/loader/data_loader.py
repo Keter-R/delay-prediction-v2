@@ -117,7 +117,7 @@ class m_DataLoader:
             else 'Afternoon' if 12 <= x.hour < 18
             else 'Evening')
 
-        flag = True
+        flag = False
 
         if flag:
             N_PERIODS_DATE = 12

@@ -145,63 +145,20 @@ class GCNLayer(nn.Module):
         return node_feats
 
 
-class LS_GCN(nn.Module):
-    def __init__(self, in_features, adj, seq_len, num_layer, hidden_size, hidden_dim, dropout=0.0):
-        super(LS_GCN, self).__init__()
+class std_GCN(nn.Module):
+    def __init__(self, in_features, adj, num_layer, hidden_size, dropout=0.0):
+        super(std_GCN, self).__init__()
         self.in_features = in_features
         self.hidden_size = hidden_size
-        self.hidden_dim = hidden_dim
         self.dropout = dropout
-        self.A = adj
-        self.lstm_out = 512
-        self.seq_len = seq_len
-        self.lstm = nn.LSTM(input_size=self.in_features, hidden_size=self.lstm_out, num_layers=num_layer,
-                            batch_first=True, dropout=dropout)
-        layer = nn.TransformerEncoderLayer(d_model=self.in_features, nhead=5, dim_feedforward=hidden_size, batch_first=True)
-        self.transformer = nn.TransformerEncoder(layer, num_layers=num_layer)
-        self.gcn = self.generate_gcn()
-        self.data = None
-        self.x = None
-
-    def generate_data(self, x):
-        feat = []
-        for i in range(x.shape[0]):
-            feat.append(x[max(0, i - self.seq_len + 1):i + 1, :])
-        # padding feat to make it have same length
-        feat = pad_sequence(feat, True, 0)
-        return feat
+        self.A = torch.tensor(adj, dtype=torch.float32).to('cuda')
+        self.edge_index, self.edge_weight = torch_geometric.utils.dense_to_sparse(self.A)
+        self.gcn = torch_geometric.nn.models.GCN(in_features, hidden_size, num_layer, 1, dropout)
 
     def forward(self, feat):
         # normalize
         feat = feat / feat.sum(dim=1, keepdim=True)
-        if self.x is None:
-            self.x = feat.clone()
-        if self.data is None:
-            self.data = self.generate_data(feat)
-        # feat, _ = self.lstm(self.data)
-        feat = self.transformer(self.data)
-        feat = feat[:, -1, :]
-        # concat [x feat]
-        # feat = torch.cat([self.x, feat], dim=1)
-        for layer in self.gcn:
-            feat = layer(feat)
+        feat = self.gcn(feat, self.edge_index, self.edge_weight)
         return feat
 
-    def generate_gcn(self):
-        # D_inv equals -1/2 power of D
-        self.A = torch.tensor(self.A, dtype=torch.float32).to('cuda')
-        D = torch.diag(torch.sum(self.A, dim=1))
-        D_inv = torch.inverse(D)
-        D_inv = torch.sqrt(D_inv)
-        A_hat = torch.matmul(torch.matmul(D_inv, self.A), D_inv)
-        self.A = A_hat.to('cuda')
-        layers = []
-        for i in range(len(self.hidden_dim) - 1):
-            if i == 0:
-                layers.append(
-                    GCNLayer(self.in_features, self.hidden_dim[i], self.A, self.dropout, nn.LeakyReLU(), False))
-            else:
-                layers.append(
-                    GCNLayer(self.hidden_dim[i - 1], self.hidden_dim[i], self.A, self.dropout, nn.LeakyReLU()))
-        layers.append(GCNLayer(self.hidden_dim[-2], self.hidden_dim[-1], self.A, None, None))
-        return nn.ModuleList(layers)
+

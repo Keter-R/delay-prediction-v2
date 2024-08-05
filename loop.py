@@ -37,7 +37,7 @@ def Task(seed, config):
         elif name == 'mlp':
             task = torch_model_task(model, name, seed, data, config)
             curves[name] = task.validation_metrics
-        elif name == 'ls_gcn':
+        elif name == 'std_gcn':
             task = torch_model_task(model, name, seed, data, config)
             curves[name] = task.validation_metrics
         else:
@@ -60,7 +60,7 @@ def torch_model_task(model, name, seed, data, config):
                                                  monitor='AUC', mode='max')
     TI = config["data"]["temporal_graph"]["time_interval"]
     SW = config["data"]["temporal_graph"]["self_weight"]
-    LD = config["models"][name]["layer_dim"] if name != "ls_gcn" else 0
+    LD = config["models"][name]["layer_dim"] if name != "std_gcn" else 0
     version = None
     if name == "gcn_temporal":
         version = f"TI_{TI}_SW_{SW}_LD_{LD}"
@@ -160,7 +160,7 @@ def other_model_task(model, name, seed, data, config):
     x_val = data['x_val']
     y_val = data['y_val']
     model.fit(x_train, y_train)
-    if name == 'svm':
+    if name == 'svm' or name == 'svm_balanced':
         # in svm, predict_proba is not available, use predict instead
         y_hat = model.predict(x_val)
     else:
@@ -286,5 +286,5 @@ def calculate_metrics(y_hat: Tensor, y: Tensor) -> dict:
                "F1_score": F1_score, "GMean": GMean, "Precision": Precision,
                "FPR": FPR, "FNR": FNR, "TPR": TPR, "TNR": TNR,
                "TP": TP, "TN": TN, "FP": FP, "FN": FN}
-    print(metrics)
+    # print(metrics)
     return metrics

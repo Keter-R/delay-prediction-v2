@@ -4,12 +4,12 @@ import torchmetrics
 import yaml
 from codes import loader
 from loop import Task
-from analysis_utils import tensorboard_draw_metrics
+from analysis_utils import tensorboard_draw_metrics, out_to_markdown_form
 
 
 # delete cache files: temporal_graph.npy, knn_graph.npy
-# if os.path.exists('./temporal_adj.npy'):
-#     os.remove('./temporal_adj.npy')
+if os.path.exists('./temporal_adj.npy'):
+    os.remove('./temporal_adj.npy')
 # if os.path.exists('./knn_adj.npy'):
 #     os.remove('./knn_adj.npy')
 
@@ -17,7 +17,7 @@ from analysis_utils import tensorboard_draw_metrics
 config = yaml.load(open('config.yaml'), Loader=yaml.FullLoader)
 random_seed = [2, 3, 5, 7, 11, 13, 17, 19, 23, 998244353]
 # random_seed = [2, 97, 997, 9973, 99991, 999983, 9999991, 99999989, 999999937, 9999999967]
-random_seed = [2]
+# random_seed = [2]
 torch.set_float32_matmul_precision('high')
 metrics_list = []
 
@@ -32,6 +32,10 @@ for seed in random_seed:
 mean, std = tensorboard_draw_metrics(metrics_list)
 print(mean)
 print(std)
+markdown_res = out_to_markdown_form(mean, std)
+# write to file
+with open('result_metrics.md', 'w', encoding='utf-8') as f:
+    f.write(markdown_res)
 # delete cache files: temporal_graph.npy, knn_graph.npy
 # os.remove('./temporal_adj.npy')
 # os.remove('./knn_adj.npy')
