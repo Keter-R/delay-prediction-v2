@@ -49,8 +49,9 @@ def Task(seed, config):
 
 def torch_model_task(model, name, seed, data, config):
     model = model.to("cuda")
-    loss_fn = torch.nn.BCEWithLogitsLoss(
-        pos_weight=torch.tensor([data['np_ratio'] * config['loss_weight_alpha']]).to("cuda"))
+    # loss_fn = torch.nn.BCEWithLogitsLoss(
+    #     pos_weight=torch.tensor([data['np_ratio'] * config['loss_weight_alpha']]).to("cuda"))
+    loss_fn = torch.nn.BCEWithLogitsLoss()
     task = pl_Task(model=model, loss_fn=loss_fn, epoch=config['epoch'], lr=config['lr'],
                    lr_gamma=config['lr_gamma'], lr_step_size=config['lr_step_size'],
                    weight_decay=config['weight_decay'], data_len=data['data_length'],

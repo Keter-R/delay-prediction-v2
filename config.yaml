@@ -62,14 +62,19 @@ models:
 
   svm:
     enable: True
+    sgd: False
+
   svm_balanced:
     enable: True
+    sgd: False
 
   regression:
     enable: True
+    sgd: False
 
   regression_balanced:
     enable: True
+    sgd: False
 
   std_gcn:
     enable: False

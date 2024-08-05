@@ -10,7 +10,8 @@ from codes.models.LSTM import LSTM
 from sklearn.ensemble import RandomForestClassifier
 from imblearn.ensemble import BalancedRandomForestClassifier
 from sklearn.linear_model import SGDClassifier
-
+from sklearn.linear_model import LogisticRegression
+from sklearn.svm import SVC
 
 def load_model(config, data, seed):
     data_feature = data['data_feature']
@@ -94,16 +95,27 @@ def load_sci_kit_models(seed, config, name):
                                               criterion=config[name]['criterion'],
                                               random_state=seed, n_jobs=-1)
     if name == 'svm':
-        return SGDClassifier(loss='hinge', penalty='l2', eta0=0.01,
-                             random_state=seed, max_iter=5, learning_rate='adaptive')
+        if config[name]['sgd']:
+            return SGDClassifier(loss='hinge', penalty='l2', eta0=0.01,
+                                 random_state=seed, max_iter=5, learning_rate='adaptive')
+        else:
+            return SVC(kernel='linear', class_weight=None)
+
     if name == 'svm_balanced':
-        return SGDClassifier(loss='hinge', penalty='l2', eta0=0.01,
-                             random_state=seed, max_iter=5, learning_rate='adaptive', class_weight='balanced')
-
+        if config[name]['sgd']:
+            return SGDClassifier(loss='hinge', penalty='l2', eta0=0.01,
+                                 random_state=seed, max_iter=5, learning_rate='adaptive', class_weight='balanced')
+        else:
+            return SVC(kernel='linear', class_weight='balanced')
     if name == 'regression':
-        return SGDClassifier(loss='log_loss', penalty='l2', eta0=0.01,
-                             random_state=seed, max_iter=100, learning_rate='adaptive')
-
+        if config[name]['sgd']:
+            return SGDClassifier(loss='log_loss', penalty='l2', eta0=0.01,
+                                 random_state=seed, max_iter=100, learning_rate='adaptive')
+        else:
+            return LogisticRegression(random_state=seed)
     if name == 'regression_balanced':
-        return SGDClassifier(loss='log_loss', penalty='l2', eta0=0.01,
-                             random_state=seed, max_iter=100, learning_rate='adaptive', class_weight='balanced')
+        if config[name]['sgd']:
+            return SGDClassifier(loss='log_loss', penalty='l2', eta0=0.01,
+                                 random_state=seed, max_iter=100, learning_rate='adaptive', class_weight='balanced')
+        else:
+            return LogisticRegression(random_state=seed, class_weight='balanced')
