@@ -122,6 +122,7 @@ class m_DataLoader:
         if flag:
             N_PERIODS_DATE = 12
             N_PERIODS_TIME = 3
+            _dat = dat.copy()
             dat['Time'] = dat['Date'].dt.hour * 60 + dat['Date'].dt.minute
             dat['Date'] = dat['Date'].dt.dayofyear
             rbf_date = RepeatingBasisFunction(
@@ -138,11 +139,28 @@ class m_DataLoader:
                 input_range=(0, 24 * 60)
             )
             time_cols = rbf_time.fit_transform(dat)
+            date_feat = pd.DataFrame(columns=[f'Month_{i}_feat_{j}'
+                                              for i in range(1, 13) for j in range(N_PERIODS_DATE)])
+            time_feat = pd.DataFrame(columns=[f'Period_{k}_feat_{i}'
+                                              for k in ['Morning', 'Afternoon', 'Evening']
+                                              for i in range(N_PERIODS_TIME)])
+            _month = _dat['Date'].dt.month
+            _period = ['Morning' if 6 <= x.hour < 12 else 'Afternoon' if 12 <= x.hour < 18
+                       else 'Evening' for x in _dat['Date']]
+            for i in range(len(dat)):
+                for j in range(N_PERIODS_DATE):
+                    date_feat.loc[i, f'Month_{_month[i]}_feat_{j}'] = date_cols[i][j]
+                for k in range(N_PERIODS_TIME):
+                    time_feat.loc[i, f'Period_{_period[i]}_feat_{k}'] = time_cols[i][k]
+            date_feat = date_feat.fillna(0)
+            time_feat = time_feat.fillna(0)
+            date_feat = date_feat.astype(float)
+            time_feat = time_feat.astype(float)
             dat = dat.drop(columns=['Date', 'Day', 'Time'])
             date_cols = pd.DataFrame(date_cols, columns=[f'Date_{i}' for i in range(N_PERIODS_DATE)])
             time_cols = pd.DataFrame(time_cols, columns=[f'Time_{i}' for i in range(N_PERIODS_TIME)])
-            dat = pd.concat([dat, date_cols], axis=1)
-            dat = pd.concat([dat, time_cols], axis=1)
+            dat = pd.concat([dat, date_feat], axis=1)
+            dat = pd.concat([dat, time_feat], axis=1)
             #   dat = pd.concat([dat, ex_feat], axis=1)
             dat = pd.get_dummies(dat, columns=['Route', 'Incident'])
             dat = dat.astype(float)
