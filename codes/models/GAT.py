@@ -15,7 +15,7 @@ class GAT(nn.Module):
         self.gat_out = 1
         # set values in A to 1 if not 0
         # self.A[self.A != 0] = 1
-        self.gat = models.GAT(in_features, hidden_size, self.gat_out, dropout, 0.01, heads)
+        self.gat = models.GAT(in_features, hidden_size, self.gat_out, dropout, 0.2, heads)
         # self.fc = nn.Linear(self.gat_out, 1)
 
     def forward(self, feat):
@@ -23,8 +23,9 @@ class GAT(nn.Module):
 
         if not isinstance(feat, torch.Tensor):
             feat = torch.tensor(feat, dtype=torch.float32).to('cuda')
-        feat = feat / feat.sum(dim=1, keepdim=True)
+        # feat = feat / feat.sum(dim=1, keepdim=True)
         feat = self.gat(feat, self.A)
+        # print(feat)
         # feat = self.fc(feat)
         # print(feat)
         # print(feat)

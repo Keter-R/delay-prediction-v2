@@ -183,14 +183,14 @@ class m_DataLoader:
         check_cols = dat.columns.tolist()
         if 'Delay' in check_cols:
             check_cols.remove('Delay')
-        _dat = dat.drop_duplicates(check_cols)
+        _dat = dat.drop_duplicates(check_cols, keep=False)
         removed_indexes = [i for i in range(0, len(dat)) if i not in _dat.index]
         # remove same indexes in self.raw_data
         self.raw_data = self.raw_data.drop(index=removed_indexes)
         # reset all indexes
         dat = _dat.reset_index(drop=True)
         self.raw_data = self.raw_data.reset_index(drop=True)
-        # print(len(dat))
+        print(len(dat))
         # print(len(self.raw_data))
         # print(dat.head(100))
         # print(self.raw_data.head(100))
