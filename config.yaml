@@ -1,4 +1,4 @@
-epoch : 250
+epoch : 500
 lr : 0.003
 lr_gamma : 0.5
 lr_step_size : 50
@@ -14,7 +14,7 @@ data:
   time_dummy_duration : 480
   temporal_graph :
     using_cache : True
-    time_interval : 90
+    time_interval : 45
     weighted_edge : True
     self_weight : 20
 
@@ -25,6 +25,13 @@ data:
     self_weight : 32
 
 models:
+
+  gat:
+    enable : True
+    heads : 3
+    hidden_size: 512
+    dropout : 0.3
+
   gtn:
     enable : False
     layer_dim : [512, 1]

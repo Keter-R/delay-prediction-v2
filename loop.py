@@ -35,6 +35,9 @@ def Task(seed, config, removed_features=None):
         elif name == 'gtn':
             task = torch_model_task(model, name, seed, data, config)
             curves[name] = task.validation_metrics
+        elif name == 'gat':
+            task = torch_model_task(model, name, seed, data, config)
+            curves[name] = task.validation_metrics
         elif name == 'mlp':
             task = torch_model_task(model, name, seed, data, config)
             curves[name] = task.validation_metrics
@@ -62,7 +65,8 @@ def torch_model_task(model, name, seed, data, config):
                                                  monitor='AUC', mode='max')
     TI = config["data"]["temporal_graph"]["time_interval"]
     SW = config["data"]["temporal_graph"]["self_weight"]
-    LD = config["models"][name]["layer_dim"] if name != "std_gcn" else 0
+    # LD = config["models"][name]["layer_dim"] if name != "std_gcn" else 0
+    LD = 0
     version = None
     if name == "gcn_temporal":
         version = f"TI_{TI}_SW_{SW}_LD_{LD}"

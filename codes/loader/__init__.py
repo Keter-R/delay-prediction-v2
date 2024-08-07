@@ -6,6 +6,7 @@ from codes.loader.data_loader import m_DataLoader
 from codes.models.MLP import MLP
 from codes.models.GCN import GCN, std_GCN
 from codes.models.GCN import GTN
+from codes.models.GAT import GAT
 from codes.models.LSTM import LSTM
 from sklearn.ensemble import RandomForestClassifier
 from imblearn.ensemble import BalancedRandomForestClassifier
@@ -20,6 +21,10 @@ def load_model(config, data, seed):
     knn_adj = data['knn_adj']
 
     models = dict()
+    if 'gat' in config and config['gat']['enable']:
+        print('Loading GAT model...')
+        models['gat'] = GAT(data_feature, config['gat']['hidden_size'], temporal_adj,
+                            config['gat']['heads'], config['gat']['dropout'])
     if 'gtn' in config and config['gtn']['enable']:
         print('Loading std gtn model...')
         models['gtn'] = GTN(data_feature, config['gtn']['layer_dim'], temporal_adj, config['gtn']['heads'], config['gtn']['dropout'])
