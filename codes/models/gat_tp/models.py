@@ -3,7 +3,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from codes.models.gat_tp.layers import GraphAttentionLayer, SpGraphAttentionLayer
 
-
 class GAT(nn.Module):
     def __init__(self, nfeat, nhid, nclass, dropout, alpha, nheads):
         """Dense version of GAT."""

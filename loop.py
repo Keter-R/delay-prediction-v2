@@ -291,7 +291,8 @@ class pl_Task(pl.LightningModule):
         )
         # lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=self.lr_gamma)
         lr_scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=self.lr_step_size, gamma=self.lr_gamma)
-        # lr_scheduler = ReduceLROnPlateau(optimizer, 'min')
+        # use cosine annealing
+        # lr_scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=self.epoch // 2, eta_min=0.0001)
         return {"optimizer": optimizer, "lr_scheduler": lr_scheduler}
 
 
