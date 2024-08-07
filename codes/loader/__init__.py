@@ -60,7 +60,7 @@ def load_model(config, data, seed):
     return models
 
 
-def load_data(seed, config, using_temporal=False, using_knn=False):
+def load_data(seed, config, using_temporal=False, using_knn=False, removed_features=None):
     dat = m_DataLoader(seed=seed, using_temporal=using_temporal, using_knn=using_knn,
                        split_ratio=config['split_ratio'], time_duration=config['time_dummy_duration'],
                        temporal_config=config['temporal_graph'], knn_config=config['knn_graph'])

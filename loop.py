@@ -14,9 +14,10 @@ from codes import loader
 import shap
 import shap.maskers
 from torch_geometric.explain import Explainer, GNNExplainer
+import matplotlib.pyplot as plt
 
 
-def Task(seed, config):
+def Task(seed, config, removed_features=None):
     pl.seed_everything(seed=seed, workers=True)
     data = loader.load_data(seed, config['data'],
                             using_temporal=config['using_temporal_graph'],
@@ -49,9 +50,9 @@ def Task(seed, config):
 
 def torch_model_task(model, name, seed, data, config):
     model = model.to("cuda")
-    # loss_fn = torch.nn.BCEWithLogitsLoss(
-    #     pos_weight=torch.tensor([data['np_ratio'] * config['loss_weight_alpha']]).to("cuda"))
-    loss_fn = torch.nn.BCEWithLogitsLoss()
+    loss_fn = torch.nn.BCEWithLogitsLoss(
+         pos_weight=torch.tensor([data['np_ratio'] * config['loss_weight_alpha']]).to("cuda"))
+    # loss_fn = torch.nn.BCEWithLogitsLoss()
     task = pl_Task(model=model, loss_fn=loss_fn, epoch=config['epoch'], lr=config['lr'],
                    lr_gamma=config['lr_gamma'], lr_step_size=config['lr_step_size'],
                    weight_decay=config['weight_decay'], data_len=data['data_length'],
@@ -75,6 +76,38 @@ def torch_model_task(model, name, seed, data, config):
                                                              version=version))
     trainer.fit(task, data['data_module'])
     trainer.validate(task, data['data_module'], ckpt_path="best")
+    # res = PFI(task, data['data'], data['val_index'])
+    # print(res)
+    # for key, value in res.items():
+    #     plt.rcParams.update({"font.size": 8})
+    #     #plt.rcParams['figure.figsize'] = (50, 50)
+    #     # sort value=(x,y) by abs(x), descending
+    #     value.sort(key=lambda x: abs(x[0]), reverse=True)
+    #     # plot top 10 features with model name, feature name, and importance
+    #     value = value[:10]
+    #     valmax = max([abs(x[0]) for x in value]) * 1.4
+    #     value.reverse()
+    #     bars0 = plt.barh([x[1] for x in value], [max(0, x[0]) for x in value])
+    #     bars1 = plt.barh([x[1] for x in value], [min(0, x[0]) for x in value])
+    #     for i in range(len(bars0)):
+    #         # use scientific notation with 2 decimal places
+    #         txt = f'{value[i][0]:.2e}'
+    #         if value[i][0] > 0:
+    #             txt = '+' + txt
+    #             bar = bars0[i]
+    #         else:
+    #             bar = bars1[i]
+    #         x = bar.get_width()
+    #         if value[i][0] < 0:
+    #             x *= 1.2
+    #         y = bar.get_y() + bar.get_height() / 2
+    #         plt.text(x, y, txt, va='center')
+    #     plt.xlim(-valmax, valmax)
+    #     plt.xlabel(f'Influence on {key}')
+    #     plt.title(f'Top 10 features influence on {name}')
+    #     plt.show()
+
+
     # pyg_exp(task, data['data'], data['edge_index']['temporal'])
     # SHAP(model, data['data'], data['val_index'])
     return task
@@ -118,41 +151,55 @@ def SHAP(model, data: pd.DataFrame, val_index: list):
 
 def PFI(model, data: pd.DataFrame, val_index: list):
     model.eval()
+    model = model.to("cuda")
     # permutation feature importance
     Y_ground_truth = torch.tensor(data['Delay'].values, dtype=torch.float32).to("cuda")
     X = data.drop(columns=['Delay'])
     X = torch.tensor(X.values, dtype=torch.float32).to("cuda")
     Y_pred = model(X.flatten()).flatten()
     true_loss = model.loss(Y_pred[val_index], Y_ground_truth[val_index]).item()
+    true_metrics = calculate_metrics(Y_pred[val_index], Y_ground_truth[val_index])
     K = 10
     clos = data.columns
     clos = clos.drop('Delay')
-    FI = []
+    FI = dict()
     for i in range(len(clos)):
+        perm_metrics = dict()
         perm_loss = 0
         for j in range(K):
             X_perm = X.clone()
             random.seed(j)
-            shuffled_indexes = val_index
-            random.shuffle(shuffled_indexes)
-            idx = 0
-            for index in range(X_perm.shape[0]):
-                if index in shuffled_indexes:
-                    X_perm[index, i] = X_perm[shuffled_indexes[idx], i]
-                    idx += 1
+            # shuffle the column
+            indices= torch.randperm(X_perm.shape[0])
+            X_perm[:, i] = X_perm[indices, i]
+            # shuffled_indexes = val_index
+            # random.shuffle(shuffled_indexes)
+            # idx = 0
+            # for index in range(X_perm.shape[0]):
+            #     if index in shuffled_indexes:
+            #         X_perm[index, i] = X_perm[shuffled_indexes[idx], i]
+            #         idx += 1
             Y_pred = model(X_perm.flatten()).flatten()
-            perm_loss += model.loss(Y_pred[val_index], Y_ground_truth[val_index]).item()
-        perm_loss /= K
-        FI.append(((true_loss - perm_loss) / true_loss, clos[i]))
-        print(f"Feature: {clos[i]}, True Loss: {true_loss}, Perm Loss: {perm_loss}")
+            perm_loss += (model.loss(Y_pred[val_index], Y_ground_truth[val_index]).item() / K)
+            metrics = calculate_metrics(Y_pred[val_index], Y_ground_truth[val_index])
+            for key, value in metrics.items():
+                if key not in perm_metrics:
+                    perm_metrics[key] = value / K
+                else:
+                    perm_metrics[key] += (value / K)
+        _metrics = dict()
+        for key, value in true_metrics.items():
+            _metrics[key] = value - perm_metrics[key]
+        _metrics['loss'] = true_loss - perm_loss
+        FI[clos[i]] = _metrics
         torch.cuda.empty_cache()
-    # sort FI by abs value
-    FI.sort(key=lambda x: abs(x[0]), reverse=True)
-    print("\n\nPermutation Feature Importance")
-    for i in range(len(FI)):
-        print(f"Feature: {FI[i][1]}, PFI: {FI[i][0]}")
-    print("PFI Done\n\n")
-    exit(133)
+    _FI = dict()
+    for col, metrics in FI.items():
+        for key, value in metrics.items():
+            if key not in _FI:
+                _FI[key] = []
+            _FI[key].append((value, col))
+    return _FI
 
 
 def other_model_task(model, name, seed, data, config):
@@ -233,6 +280,7 @@ class pl_Task(pl.LightningModule):
         self.validation_metrics.append(metrics)
         for key, value in self.validation_metrics[-1].items():
             self.log(key, value)
+        print(self.validation_metrics[-1])
         return loss
 
     def configure_optimizers(self):

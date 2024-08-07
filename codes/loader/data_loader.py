@@ -16,10 +16,12 @@ class m_DataLoader:
                  time_duration=0,
                  using_temporal=False, using_knn=False,
                  temporal_config=None, knn_config=None,
+                 removed_features=None,
                  split_ratio=0.8,
                  data_path='./data/ttc-streetcar-delay-data-2023-pure.xlsx'):
         self.seed = seed
         random.seed(seed)
+        self.removed_features = removed_features
         self.data_path = data_path
         self.time_duration = time_duration
         self.using_temporal = using_temporal
@@ -49,7 +51,7 @@ class m_DataLoader:
         dat['Delay'] = dat['Delay'].apply(lambda x: 1 if x > 30 else 0)
         self.raw_data = dat
         self.data = self.process_raw()
-        self.data_length = len(dat)
+        self.data_length = len(self.data)
         self.sample()
         self.generate_data_module()
         self.generate_data()
@@ -146,7 +148,7 @@ class m_DataLoader:
                                               for i in range(N_PERIODS_TIME)])
             _month = _dat['Date'].dt.month
             _period = ['Morning' if 6 <= x.hour < 12 else 'Afternoon' if 12 <= x.hour < 18
-                       else 'Evening' for x in _dat['Date']]
+            else 'Evening' for x in _dat['Date']]
             for i in range(len(dat)):
                 for j in range(N_PERIODS_DATE):
                     date_feat.loc[i, f'Month_{_month[i]}_feat_{j}'] = date_cols[i][j]
@@ -170,7 +172,31 @@ class m_DataLoader:
             dat['Month'] = dat['Month'].dt.month
             dat = pd.get_dummies(dat, columns=['Route', 'Time', 'Day', 'Month', 'Incident'])
             dat = dat.astype(float)
+        if self.removed_features is not None:
+            for col in self.removed_features:
+                if col not in dat.columns:
+                    raise ValueError(f'Column {col} not in data')
+            dat = dat.drop(columns=self.removed_features)
         self.data_feature = len(dat.columns) - 1
+        # len_ = dat.shape[0]
+        # # remove duplicate rows
+        check_cols = dat.columns.tolist()
+        if 'Delay' in check_cols:
+            check_cols.remove('Delay')
+        _dat = dat.drop_duplicates(check_cols)
+        removed_indexes = [i for i in range(0, len(dat)) if i not in _dat.index]
+        # remove same indexes in self.raw_data
+        self.raw_data = self.raw_data.drop(index=removed_indexes)
+        # reset all indexes
+        dat = _dat.reset_index(drop=True)
+        self.raw_data = self.raw_data.reset_index(drop=True)
+        # print(len(dat))
+        # print(len(self.raw_data))
+        # print(dat.head(100))
+        # print(self.raw_data.head(100))
+        # exit(123)
+        # print(f'Remove {len_ - dat.shape[0]} duplicate rows')
+        # exit(1313)
         return dat
 
     def sample(self):
