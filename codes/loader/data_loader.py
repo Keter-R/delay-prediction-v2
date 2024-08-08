@@ -191,6 +191,11 @@ class m_DataLoader:
         dat = _dat.reset_index(drop=True)
         self.raw_data = self.raw_data.reset_index(drop=True)
         print(len(dat))
+        out_to_file_flag = False
+        if out_to_file_flag:
+            self.raw_data.to_excel('raw_data.xlsx')
+            dat.to_excel('data.xlsx')
+            exit(1233)
         # print(len(self.raw_data))
         # print(dat.head(100))
         # print(self.raw_data.head(100))

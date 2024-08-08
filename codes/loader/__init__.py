@@ -104,14 +104,14 @@ def load_sci_kit_models(seed, config, name):
             return SGDClassifier(loss='hinge', penalty='l2', eta0=0.01,
                                  random_state=seed, max_iter=5, learning_rate='adaptive')
         else:
-            return SVC(kernel='linear', class_weight=None, probability=True)
+            return SVC(kernel='rbf', class_weight=None, probability=True)
 
     if name == 'svm_balanced':
         if config[name]['sgd']:
             return SGDClassifier(loss='hinge', penalty='l2', eta0=0.01,
                                  random_state=seed, max_iter=5, learning_rate='adaptive', class_weight='balanced')
         else:
-            return SVC(kernel='linear', class_weight='balanced', probability=True)
+            return SVC(kernel='rbf', class_weight='balanced', probability=True)
     if name == 'regression':
         if config[name]['sgd']:
             return SGDClassifier(loss='log_loss', penalty='l2', eta0=0.01,
